@@ -10,4 +10,11 @@
   <ItemGroup>
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.4.1" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Content\bin\DesktopGL\*.xnb">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </None>
+  </ItemGroup>
 </Project>

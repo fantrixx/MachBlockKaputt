@@ -50,7 +50,7 @@ namespace AlleywayMonoGame
         private float maxBallSpeed = 800f; // cap to prevent runaway speed
 
         private int score = 0;
-        private int lives = 3;
+        private int lives = 1;
 
         // Special power-up system
         private List<int> specialBricks = new List<int>(); // indices of special bricks (shoot power)
@@ -580,7 +580,7 @@ namespace AlleywayMonoGame
                     {
                         // Restart game
                         gameOver = false;
-                        lives = 3;
+                        lives = 1;
                         score = 0;
                         level = 1;
                         gameTimer = 0f;
@@ -806,6 +806,8 @@ namespace AlleywayMonoGame
                             bool wasShootBrick = specialBricks.Contains(i);
                             bool wasExtraBallBrick = extraBallBricks.Contains(i);
                             
+                            System.Diagnostics.Debug.WriteLine($"Brick hit: wasExtraBallBrick={wasExtraBallBrick}, canShoot={canShoot}");
+                            
                             bricks.RemoveAt(i);
                             
                             // Update special bricks indices (all indices after removed one shift down)
@@ -845,6 +847,8 @@ namespace AlleywayMonoGame
                             // Spawn extra ball if extra ball brick hit (ONLY when shoot mode is NOT active)
                             if (wasExtraBallBrick && !canShoot)
                             {
+                                System.Diagnostics.Debug.WriteLine($"Creating floating text at position {center}");
+                                
                                 // Create extra ball at brick position, falling downward
                                 balls.Add(new Ball
                                 {
@@ -853,17 +857,17 @@ namespace AlleywayMonoGame
                                     IsLaunched = true
                                 });
                                 
-                                // Create floating text at brick position
+                                // Create floating text at brick position - make it VERY visible
                                 floatingTexts.Add(new FloatingText
                                 {
                                     Text = "+BALL",
-                                    Position = center,
-                                    Lifetime = 2f,
-                                    MaxLifetime = 2f,
-                                    Color = new Color(75, 0, 130) // Dark purple
+                                    Position = center, // At brick position
+                                    Lifetime = 3f, // Longer lifetime
+                                    MaxLifetime = 3f,
+                                    Color = Color.White
                                 });
                                 
-                                System.Diagnostics.Debug.WriteLine("EXTRA BALL SPAWNED!");
+                                System.Diagnostics.Debug.WriteLine($"EXTRA BALL SPAWNED! FloatingTexts count: {floatingTexts.Count}");
                             }
                             
                             // spawn explosion at brick center with brick color
@@ -1202,74 +1206,30 @@ namespace AlleywayMonoGame
             if (canShoot)
             {
                 float textFlicker = (float)Math.Sin(flickerTimer * 1.5f) * 0.5f + 0.5f;
-                Color darkPurple = new Color(75, 0, 130); // Dunkel-Lila
-                Color flickerColor = Color.Lerp(darkPurple * 0.7f, darkPurple, textFlicker);
                 
                 if (font != null)
                 {
-                    string powerUpText = "PRESS SPACE TO SHOOT";
+                    string powerUpText = "SPACE TO SHOOT";
                     Vector2 textSize = font.MeasureString(powerUpText);
                     // Zentriere den Text und stelle sicher, dass er im sichtbaren Bereich ist
-                    Vector2 textPos = new Vector2((screenWidth - textSize.X) / 2, gameAreaTop + 150);
+                    Vector2 textPos = new Vector2((screenWidth - textSize.X) / 2, screenHeight / 2 - 90);
                     
-                    // Nur Text mit Outline, KEIN Hintergrundkasten
-                    // Starker schwarzer Outline für bessere Lesbarkeit
-                    for (int offsetX = -3; offsetX <= 3; offsetX++)
+                    // Transparente Anzeige mit sanftem Flackern
+                    float alpha = 0.3f + textFlicker * 0.4f; // Zwischen 30% und 70% Transparenz
+                    
+                    // Leichter schwarzer Schatten für Lesbarkeit
+                    for (int offsetX = -2; offsetX <= 2; offsetX++)
                     {
-                        for (int offsetY = -3; offsetY <= 3; offsetY++)
+                        for (int offsetY = -2; offsetY <= 2; offsetY++)
                         {
                             if (offsetX != 0 || offsetY != 0)
                             {
-                                _spriteBatch.DrawString(font, powerUpText, textPos + new Vector2(offsetX, offsetY), Color.Black);
+                                _spriteBatch.DrawString(font, powerUpText, textPos + new Vector2(offsetX, offsetY), Color.Black * (alpha * 0.5f));
                             }
                         }
                     }
-                    // Haupttext in dunkel-lila
-                    _spriteBatch.DrawString(font, powerUpText, textPos, flickerColor);
-                }
-                else if (white != null)
-                {
-                    // Fallback: Draw simplified pixel-based message OHNE Hintergrund
-                    int centerX = screenWidth / 2;
-                    int centerY = screenHeight / 2 - 60;
-                    int blockSize = 10;
-                    
-                    // Draw "PRESS SPACE" as clear pixel blocks without overlap and NO background box
-                    // P
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 150, centerY, blockSize, 40), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 142, centerY, 20, blockSize), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 122, centerY, blockSize, 20), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 142, centerY + 16, 20, blockSize), flickerColor);
-                    
-                    // R
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 105, centerY, blockSize, 40), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 97, centerY, 20, blockSize), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 77, centerY, blockSize, 20), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 97, centerY + 16, 20, blockSize), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 85, centerY + 24, 16, blockSize), flickerColor);
-                    
-                    // E
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 60, centerY, blockSize, 40), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 52, centerY, 25, blockSize), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 52, centerY + 16, 20, blockSize), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 52, centerY + 32, 25, blockSize), flickerColor);
-                    
-                    // S
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 18, centerY, 28, blockSize), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 18, centerY + 8, blockSize, 10), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 18, centerY + 16, 28, blockSize), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX + 2, centerY + 24, blockSize, 10), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX - 18, centerY + 32, 28, blockSize), flickerColor);
-                    
-                    // S
-                    _spriteBatch.Draw(white, new Rectangle(centerX + 20, centerY, 28, blockSize), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX + 20, centerY + 8, blockSize, 10), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX + 20, centerY + 16, 28, blockSize), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX + 40, centerY + 24, blockSize, 10), flickerColor);
-                    _spriteBatch.Draw(white, new Rectangle(centerX + 20, centerY + 32, 28, blockSize), flickerColor);
-                    
-                    // SPACE text indicator
-                    _spriteBatch.Draw(white, new Rectangle(centerX + 60, centerY + 10, 80, 20), flickerColor);
+                    // Haupttext in leuchtendem Gelb mit Transparenz
+                    _spriteBatch.DrawString(font, powerUpText, textPos, Color.Yellow * alpha);
                 }
             }
             
