@@ -1,0 +1,7 @@
+# MonoGame Content Builder
+
+/#! /usr/bin/env mgcb
+
+# Content is empty - DefaultFont.spritefont should be processed with the MonoGame pipeline tool when building.
+
+# Add files here when using the MonoGame Pipeline Tool

@@ -1,0 +1,4 @@
+C:\Users\Labor\Documents\coding\AlleywayMonoGame\obj\Debug\net7.0\AlleywayMonoGame.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Labor\Documents\coding\AlleywayMonoGame\obj\Debug\net7.0\AlleywayMonoGame.AssemblyInfoInputs.cache
+C:\Users\Labor\Documents\coding\AlleywayMonoGame\obj\Debug\net7.0\AlleywayMonoGame.AssemblyInfo.cs
+C:\Users\Labor\Documents\coding\AlleywayMonoGame\obj\Debug\net7.0\AlleywayMonoGame.csproj.CoreCompileInputs.cache
