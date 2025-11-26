@@ -87,11 +87,24 @@ namespace AlleywayMonoGame
         private bool slamAnimationDone = false;
         private float glowPulse = 0f; // For pulsing glow effect
         
+        // Purchase animation
+        private bool purchaseAnimationActive = false;
+        private float purchaseCostX = 0f; // X position of flying cost
+        private float purchaseCostY = 0f; // Y position
+        private int purchaseCostAmount = 0; // Amount being spent
+        private float purchaseAnimationTimer = 0f;
+        private int oldBalance = 0; // Balance before purchase
+        private int newBalance = 0; // Balance after purchase
+        private float balanceShake = 0f; // Shake effect on impact
+        
         // Shop upgrades (persistent across levels)
         private float paddleSpeedMultiplier = 1.0f;
         private int extraBallsPurchased = 0; // Count of extra balls to spawn
         private bool startWithShootMode = false;
         private bool specialBricksSetForLevel = false; // Track if special bricks were already set
+        
+        // Cannon animation
+        private float cannonExtension = 0f; // 0 = retracted, 1 = fully extended
         
         // Timer system
         private float gameTimer = 0f;
@@ -673,33 +686,34 @@ namespace AlleywayMonoGame
                 // Slam animation for final balance
                 if (moneyAnimationDone && !slamAnimationDone)
                 {
-                    float gravity = 1200f * dt; // Slower gravity
+                    float gravity = 1200f * dt;
                     slamVelocity += gravity;
                     slamY += slamVelocity;
                     
-                    float targetY = 165f; // Final position
+                    float targetY = 0f; // Relative to grid row 3 (START_Y=40 + 3*ROW_HEIGHT=50 = 190)
                     if (slamY >= targetY)
                     {
                         slamY = targetY;
+                        float prevVelocity = slamVelocity;
                         slamVelocity *= -0.4f; // Bounce with damping
                         slamScale = 1.2f; // Impact effect
                         
-                        // Create dust cloud on first impact
-                        if (Math.Abs(slamVelocity) > 100f)
+                        // Create dust cloud on impact (check before bounce)
+                        if (prevVelocity > 0f && Math.Abs(prevVelocity) > 50f)
                         {
-                            Vector2 impactPos = new Vector2(screenWidth / 2, 140 + 25 + targetY + 20);
-                            for (int i = 0; i < 15; i++)
+                            Vector2 impactPos = new Vector2(screenWidth / 2, 40 + 3 * 50 + 30);
+                            for (int i = 0; i < 20; i++)
                             {
-                                float angle = rand.Next(360) * (float)Math.PI / 180f;
-                                float speed = 50f + rand.Next(100);
+                                float angle = (rand.Next(60) + 60) * (float)Math.PI / 180f; // Spread sideways
+                                float speed = 80f + rand.Next(120);
                                 particles.Add(new Particle
                                 {
                                     Position = impactPos,
-                                    Velocity = new Vector2((float)Math.Cos(angle) * speed, (float)Math.Sin(angle) * speed * 0.3f),
-                                    Lifetime = 1.5f + (float)rand.NextDouble() * 1.0f,
-                                    MaxLifetime = 1.5f + (float)rand.NextDouble() * 1.0f,
-                                    Size = 4f + rand.Next(6),
-                                    Color = Color.Gray
+                                    Velocity = new Vector2((float)Math.Cos(angle) * speed, (float)Math.Sin(angle) * speed * 0.5f),
+                                    Lifetime = 1.2f + (float)rand.NextDouble() * 0.8f,
+                                    MaxLifetime = 1.2f + (float)rand.NextDouble() * 0.8f,
+                                    Size = 5f + rand.Next(7),
+                                    Color = Color.LightGray
                                 });
                             }
                         }
@@ -723,6 +737,54 @@ namespace AlleywayMonoGame
                 // Pulsing glow effect
                 glowPulse += dt * 3f;
                 
+                // Update purchase animation
+                if (purchaseAnimationActive)
+                {
+                    purchaseAnimationTimer += dt;
+                    
+                    // Phase 1: Cost flies from left to balance (0-0.5s)
+                    if (purchaseAnimationTimer < 0.5f)
+                    {
+                        float progress = purchaseAnimationTimer / 0.5f;
+                        // Ease-out curve for smooth deceleration
+                        float eased = 1f - (float)Math.Pow(1f - progress, 3);
+                        purchaseCostX += (screenWidth / 2 - purchaseCostX) * eased * dt * 8f;
+                    }
+                    // Phase 2: Impact and shake (0.5-0.8s)
+                    else if (purchaseAnimationTimer < 0.8f)
+                    {
+                        if (purchaseAnimationTimer >= 0.5f && purchaseAnimationTimer - dt < 0.5f)
+                        {
+                            // On impact: create explosion particles at balance position (Grid Row 3)
+                            Vector2 impactPos = new Vector2(screenWidth / 2, 40 + 3 * 50 + 10);
+                            for (int i = 0; i < 20; i++)
+                            {
+                                float angle = rand.Next(360) * (float)Math.PI / 180f;
+                                float speed = 100f + rand.Next(150);
+                                particles.Add(new Particle
+                                {
+                                    Position = impactPos,
+                                    Velocity = new Vector2((float)Math.Cos(angle) * speed, (float)Math.Sin(angle) * speed),
+                                    Lifetime = 0.5f + (float)rand.NextDouble() * 0.5f,
+                                    MaxLifetime = 0.5f + (float)rand.NextDouble() * 0.5f,
+                                    Size = 3f + rand.Next(5),
+                                    Color = Color.Gold
+                                });
+                            }
+                        }
+                        
+                        // Shake effect
+                        float shakeIntensity = 10f * (1f - (purchaseAnimationTimer - 0.5f) / 0.3f);
+                        balanceShake = (float)(rand.NextDouble() - 0.5) * shakeIntensity * 2f;
+                    }
+                    // Phase 3: Done (0.8s+)
+                    else
+                    {
+                        purchaseAnimationActive = false;
+                        balanceShake = 0f;
+                    }
+                }
+                
                 var mouseState = Mouse.GetState();
                 Point mousePos = new Point(mouseState.X, mouseState.Y);
                 
@@ -734,25 +796,52 @@ namespace AlleywayMonoGame
                 nextLevelButtonHovered = nextLevelButton.Contains(mousePos);
                 
                 // Handle clicks
-                if (mouseState.LeftButton == ButtonState.Pressed)
+                if (mouseState.LeftButton == ButtonState.Pressed && !purchaseAnimationActive)
                 {
                     // Shop button 1: +3% paddle speed for $25
                     if (shopButtonsHovered[0] && bankBalance >= 25 && moneyAnimationDone)
                     {
+                        oldBalance = bankBalance;
                         bankBalance -= 25;
+                        newBalance = bankBalance;
                         paddleSpeedMultiplier += 0.03f;
+                        
+                        // Start purchase animation (flies to balance at Grid Row 3)
+                        purchaseAnimationActive = true;
+                        purchaseCostAmount = 25;
+                        purchaseCostX = shopButtons[0].X - 150; // Start left of button
+                        purchaseCostY = 40 + 3 * 50; // Fly to Grid Row 3 (balance position)
+                        purchaseAnimationTimer = 0f;
                     }
                     // Shop button 2: Extra ball for $5 (can buy multiple)
                     else if (shopButtonsHovered[1] && bankBalance >= 5 && moneyAnimationDone)
                     {
+                        oldBalance = bankBalance;
                         bankBalance -= 5;
+                        newBalance = bankBalance;
                         extraBallsPurchased++;
+                        
+                        // Start purchase animation (flies to balance at Grid Row 3)
+                        purchaseAnimationActive = true;
+                        purchaseCostAmount = 5;
+                        purchaseCostX = shopButtons[1].X - 150;
+                        purchaseCostY = 40 + 3 * 50; // Fly to Grid Row 3 (balance position)
+                        purchaseAnimationTimer = 0f;
                     }
                     // Shop button 3: Start with shoot mode for $15
                     else if (shopButtonsHovered[2] && bankBalance >= 15 && moneyAnimationDone)
                     {
+                        oldBalance = bankBalance;
                         bankBalance -= 15;
+                        newBalance = bankBalance;
                         startWithShootMode = true;
+                        
+                        // Start purchase animation (flies to balance at Grid Row 3)
+                        purchaseAnimationActive = true;
+                        purchaseCostAmount = 15;
+                        purchaseCostX = shopButtons[2].X - 150;
+                        purchaseCostY = 40 + 3 * 50; // Fly to Grid Row 3 (balance position)
+                        purchaseAnimationTimer = 0f;
                     }
                     // Next level button
                     else if (nextLevelButtonHovered && moneyAnimationDone)
@@ -851,6 +940,22 @@ namespace AlleywayMonoGame
                 if (shootPowerTimer <= 0)
                 {
                     canShoot = false;
+                }
+                
+                // Extend cannon animation
+                if (cannonExtension < 1f)
+                {
+                    cannonExtension += dt * 3f; // Extend over ~0.33 seconds
+                    if (cannonExtension > 1f) cannonExtension = 1f;
+                }
+            }
+            else
+            {
+                // Retract cannon animation
+                if (cannonExtension > 0f)
+                {
+                    cannonExtension -= dt * 3f; // Retract over ~0.33 seconds
+                    if (cannonExtension < 0f) cannonExtension = 0f;
                 }
             }
             
@@ -1230,19 +1335,20 @@ namespace AlleywayMonoGame
                 // Calculate time bonus: 100$ - time in seconds
                 levelCompleteTimeBonus = Math.Max(0, 100 - (int)gameTimer);
                 
-                // Setup shop buttons - aligned with border in Draw
-                // yOffset in Draw: 80 (stats) + 60 (money) = 140, then +60 for shop = 200
-                // Shop starts at y=200, border at y=195, title at y=205, buttons start at y=235
+                // Setup shop buttons - using grid layout system
+                // Grid: ROW_HEIGHT = 50, START_Y = 40
+                // Row 0: Title (40), Row 1: Calc (90), Row 2: Counting (140), Row 3: Balance (190)
+                // Row 5: Shop Title (290), Row 6-8: Buttons (340, 382, 424), Row 9: Next (466)
                 int buttonWidth = 220;
                 int buttonHeight = 35;
-                int shopStartY = 235; // Matches Draw rendering position
+                int shopButtonStartY = 340; // START_Y (40) + 6 * ROW_HEIGHT (50)
                 for (int i = 0; i < 3; i++)
                 {
-                    shopButtons[i] = new Rectangle(screenWidth / 2 - buttonWidth / 2, shopStartY + i * 42, buttonWidth, buttonHeight);
+                    shopButtons[i] = new Rectangle(screenWidth / 2 - buttonWidth / 2, shopButtonStartY + i * 42, buttonWidth, buttonHeight);
                 }
                 
-                // Next level button - below shop border
-                nextLevelButton = new Rectangle(screenWidth / 2 - 100, shopStartY + 3 * 42 + 15, 200, 50);
+                // Next level button
+                nextLevelButton = new Rectangle(screenWidth / 2 - 100, shopButtonStartY + 3 * 42 + 20, 200, 50);
                 
                 // stop all balls movement
                 foreach (Ball b in balls)
@@ -1298,14 +1404,75 @@ namespace AlleywayMonoGame
                 // Draw separator line between UI and game area (3px thick, white)
                 _spriteBatch.Draw(white, new Rectangle(0, uiHeight, screenWidth, 3), Color.White);
                 
-                // draw paddle with rounded corners texture (tinted black)
+                // draw paddle with 3D robotic style
                 if (paddleTexture != null)
                 {
-                    _spriteBatch.Draw(paddleTexture, paddle, Color.Black);
+                    // Bottom shadow layer (dark)
+                    Rectangle shadowRect = new Rectangle(paddle.X, paddle.Y + 3, paddle.Width, paddle.Height);
+                    _spriteBatch.Draw(paddleTexture, shadowRect, Color.Black * 0.4f);
+                    
+                    // Base metallic layer (dark gray-blue)
+                    Color baseColor = new Color(40, 50, 70);
+                    _spriteBatch.Draw(paddleTexture, paddle, baseColor);
+                    
+                    // Inner gradient layer (lighter center)
+                    Rectangle innerRect = new Rectangle(paddle.X + 2, paddle.Y + 3, paddle.Width - 4, paddle.Height - 6);
+                    Color innerColor = new Color(60, 75, 100);
+                    _spriteBatch.Draw(paddleTexture, innerRect, innerColor);
+                    
+                    // Top highlight strip (metallic shine)
+                    Rectangle topHighlight = new Rectangle(paddle.X + 8, paddle.Y + 2, paddle.Width - 16, 4);
+                    Color highlightColor = new Color(120, 140, 180);
+                    _spriteBatch.Draw(white, topHighlight, highlightColor);
+                    
+                    // Side accent lines (robotic detail)
+                    Rectangle leftAccent = new Rectangle(paddle.X + 5, paddle.Y + 4, 2, paddle.Height - 8);
+                    Rectangle rightAccent = new Rectangle(paddle.X + paddle.Width - 7, paddle.Y + 4, 2, paddle.Height - 8);
+                    Color accentColor = new Color(80, 120, 160);
+                    _spriteBatch.Draw(white, leftAccent, accentColor);
+                    _spriteBatch.Draw(white, rightAccent, accentColor);
+                    
+                    // Center tech stripe (glowing blue)
+                    float glowPulse = (float)Math.Sin(gameTimer * 3) * 0.3f + 0.7f;
+                    Rectangle centerStripe = new Rectangle(paddle.X + paddle.Width / 2 - 1, paddle.Y + 6, 2, paddle.Height - 12);
+                    Color techColor = new Color(0, 150, 255) * glowPulse;
+                    _spriteBatch.Draw(white, centerStripe, techColor);
+                    
+                    // Cannon (extends from center when shoot mode active)
+                    if (cannonExtension > 0f)
+                    {
+                        int cannonWidth = 8;
+                        int cannonHeight = (int)(20 * cannonExtension);
+                        int cannonX = paddle.X + paddle.Width / 2 - cannonWidth / 2;
+                        int cannonY = paddle.Y - cannonHeight;
+                        
+                        // Cannon barrel (dark metallic)
+                        Rectangle cannonBarrel = new Rectangle(cannonX, cannonY, cannonWidth, cannonHeight);
+                        _spriteBatch.Draw(white, cannonBarrel, new Color(50, 55, 65));
+                        
+                        // Cannon barrel inner (darker)
+                        Rectangle cannonInner = new Rectangle(cannonX + 1, cannonY, cannonWidth - 2, cannonHeight);
+                        _spriteBatch.Draw(white, cannonInner, new Color(30, 35, 45));
+                        
+                        // Cannon tip (bright orange glow)
+                        if (cannonExtension > 0.8f)
+                        {
+                            Rectangle cannonTip = new Rectangle(cannonX + 2, cannonY, cannonWidth - 4, 3);
+                            _spriteBatch.Draw(white, cannonTip, Color.Orange * glowPulse);
+                        }
+                        
+                        // Side details
+                        _spriteBatch.Draw(white, new Rectangle(cannonX, cannonY + 2, 2, cannonHeight - 4), new Color(70, 80, 100));
+                        _spriteBatch.Draw(white, new Rectangle(cannonX + cannonWidth - 2, cannonY + 2, 2, cannonHeight - 4), new Color(70, 80, 100));
+                    }
                 }
                 else
                 {
-                    _spriteBatch.Draw(white, paddle, Color.Black);
+                    // Fallback without texture
+                    _spriteBatch.Draw(white, new Rectangle(paddle.X, paddle.Y + 2, paddle.Width, paddle.Height), Color.Black * 0.3f);
+                    _spriteBatch.Draw(white, paddle, new Color(40, 50, 70));
+                    _spriteBatch.Draw(white, new Rectangle(paddle.X + 2, paddle.Y + 2, paddle.Width - 4, paddle.Height - 4), new Color(60, 75, 100));
+                    _spriteBatch.Draw(white, new Rectangle(paddle.X + paddle.Width / 2 - 1, paddle.Y + 4, 2, paddle.Height - 8), new Color(0, 150, 255));
                 }
 
                 // draw all balls (use circular texture if available)
@@ -1507,10 +1674,16 @@ namespace AlleywayMonoGame
 
                 if (font != null)
                 {
-                    // Title
+                    // === GRID LAYOUT SYSTEM ===
+                    // Clean grid with fixed row heights
+                    const int ROW_HEIGHT = 50;
+                    const int START_Y = 40;
+                    int currentRow = 0;
+                    
+                    // Row 0: Title
                     string title = "DONE!";
                     Vector2 titleSize = font.MeasureString(title);
-                    Vector2 titlePos = new Vector2((screenWidth - titleSize.X) / 2, 30);
+                    Vector2 titlePos = new Vector2((screenWidth - titleSize.X) / 2, START_Y + currentRow * ROW_HEIGHT);
                     
                     // Green glow effect
                     for (int offsetX = -2; offsetX <= 2; offsetX++)
@@ -1524,91 +1697,32 @@ namespace AlleywayMonoGame
                         }
                     }
                     _spriteBatch.DrawString(font, title, titlePos, Color.LightGreen);
+                    currentRow++;
                     
-                    // Stats
-                    int yOffset = 80;
-                    string livesText = $"Lives: {lives}";
-                    string timeText = $"Time: {(int)gameTimer / 60:D2}:{(int)gameTimer % 60:D2}";
-                    _spriteBatch.DrawString(font, livesText, new Vector2(screenWidth / 2 - 100, yOffset), Color.White);
-                    _spriteBatch.DrawString(font, timeText, new Vector2(screenWidth / 2 - 100, yOffset + 25), Color.White);
-                    
-                    // Money calculation animation
-                    yOffset += 60;
+                    // Row 1: Time Bonus Calculation
                     string calc1 = $"Time Bonus: $100 - {(int)gameTimer}s = ${levelCompleteTimeBonus}";
-                    _spriteBatch.DrawString(font, calc1, new Vector2(screenWidth / 2 - 140, yOffset), Color.Yellow);
+                    Vector2 calc1Size = font.MeasureString(calc1);
+                    _spriteBatch.DrawString(font, calc1, new Vector2((screenWidth - calc1Size.X) / 2, START_Y + currentRow * ROW_HEIGHT), Color.Yellow);
+                    currentRow++;
                     
+                    // Row 2: Counting Animation
                     if (!moneyAnimationDone)
                     {
                         string calc2 = $"Counting... ${animatedMoney}";
-                        _spriteBatch.DrawString(font, calc2, new Vector2(screenWidth / 2 - 140, yOffset + 25), Color.Gray);
+                        Vector2 calc2Size = font.MeasureString(calc2);
+                        _spriteBatch.DrawString(font, calc2, new Vector2((screenWidth - calc2Size.X) / 2, START_Y + currentRow * ROW_HEIGHT), Color.Gray);
                     }
+                    currentRow++;
                     
-                    // Space between calculation and balance/shop
-                    yOffset += 55;
-                    
-                    // Shop section - only show after money animation is done
-                    if (moneyAnimationDone && slamAnimationDone)
-                    {
-                        // Shop section with border (moved down to make room for balance)
-                        int shopYOffset = yOffset + 60;
-                        int shopBoxX = screenWidth / 2 - 130;
-                        int shopBoxY = yOffset - 5;
-                        int shopBoxWidth = 260;
-                        int shopBoxHeight = 165; // Smaller to not overlap Next button
-                        
-                        // Draw shop border
-                        _spriteBatch.Draw(white, new Rectangle(shopBoxX, shopBoxY, shopBoxWidth, 3), Color.Cyan);
-                        _spriteBatch.Draw(white, new Rectangle(shopBoxX, shopBoxY + shopBoxHeight - 3, shopBoxWidth, 3), Color.Cyan);
-                        _spriteBatch.Draw(white, new Rectangle(shopBoxX, shopBoxY, 3, shopBoxHeight), Color.Cyan);
-                        _spriteBatch.Draw(white, new Rectangle(shopBoxX + shopBoxWidth - 3, shopBoxY, 3, shopBoxHeight), Color.Cyan);
-                        
-                        // Shop title
-                        string shopTitle = "=== SHOP ===";
-                        Vector2 shopTitleSize = font.MeasureString(shopTitle);
-                        _spriteBatch.DrawString(font, shopTitle, new Vector2((screenWidth - shopTitleSize.X) / 2, yOffset + 5), Color.Cyan);
-                        
-                        // Shop buttons with smaller text
-                        string[] shopTexts = {
-                            "+3% Speed $25",
-                            "Extra Ball $5",
-                            "Shoot 6s $15"
-                        };
-                        
-                        for (int i = 0; i < 3; i++)
-                        {
-                            bool canAfford = (i == 0 && bankBalance >= 25) || (i == 1 && bankBalance >= 5) || (i == 2 && bankBalance >= 15);
-                            Color buttonColor = shopButtonsHovered[i] && canAfford ? Color.LightBlue : (canAfford ? Color.Blue : Color.DarkGray);
-                            _spriteBatch.Draw(white, shopButtons[i], buttonColor);
-                            
-                            Vector2 textSize = font.MeasureString(shopTexts[i]);
-                            Vector2 textPos = new Vector2(
-                                shopButtons[i].X + (shopButtons[i].Width - textSize.X) / 2,
-                                shopButtons[i].Y + (shopButtons[i].Height - textSize.Y) / 2
-                            );
-                            _spriteBatch.DrawString(font, shopTexts[i], textPos, canAfford ? Color.White : Color.Gray);
-                        }
-                        
-                        // Next level button
-                        Color nextColor = nextLevelButtonHovered ? Color.LightGreen : Color.Green;
-                        _spriteBatch.Draw(white, nextLevelButton, nextColor);
-                        string nextText = "NEXT LEVEL";
-                        Vector2 nextTextSize = font.MeasureString(nextText);
-                        Vector2 nextTextPos = new Vector2(
-                            nextLevelButton.X + (nextLevelButton.Width - nextTextSize.X) / 2,
-                            nextLevelButton.Y + (nextLevelButton.Height - nextTextSize.Y) / 2
-                        );
-                        _spriteBatch.DrawString(font, nextText, nextTextPos, Color.Black);
-                    }
-                    
-                    // Draw final balance AFTER shop so it appears on top
+                    // Row 3: Balance Display
                     if (moneyAnimationDone)
                     {
                         string finalBalance = $"${bankBalance}";
                         Vector2 balanceSize = font.MeasureString(finalBalance);
-                        Vector2 balancePos = new Vector2((screenWidth - balanceSize.X * slamScale) / 2, yOffset + slamY);
+                        Vector2 balancePos = new Vector2((screenWidth - balanceSize.X * slamScale) / 2 + balanceShake, START_Y + currentRow * ROW_HEIGHT + slamY);
                         
-                        // Subtle pulsing glow effect (readable text)
-                        float glowIntensity = (float)Math.Sin(glowPulse) * 0.15f + 0.2f; // 0.05 to 0.35
+                        // Subtle pulsing glow effect
+                        float glowIntensity = (float)Math.Sin(glowPulse) * 0.15f + 0.2f;
                         for (int ox = -2; ox <= 2; ox++)
                         {
                             for (int oy = -2; oy <= 2; oy++)
@@ -1626,6 +1740,84 @@ namespace AlleywayMonoGame
                         }
                         
                         _spriteBatch.DrawString(font, finalBalance, balancePos, Color.Gold, 0f, Vector2.Zero, slamScale, SpriteEffects.None, 0f);
+                        
+                        // Draw flying purchase cost during animation
+                        if (purchaseAnimationActive && purchaseAnimationTimer < 0.5f)
+                        {
+                            string costText = $"-${purchaseCostAmount}";
+                            Vector2 costPos = new Vector2(purchaseCostX, purchaseCostY);
+                            
+                            // Trail effect
+                            float trailAlpha = 1f - (purchaseAnimationTimer / 0.5f);
+                            for (int i = 1; i <= 3; i++)
+                            {
+                                Vector2 trailOffset = new Vector2(-i * 15, 0);
+                                _spriteBatch.DrawString(font, costText, costPos + trailOffset, Color.Red * (trailAlpha * 0.3f));
+                            }
+                            
+                            // Main cost text with glow
+                            for (int ox = -2; ox <= 2; ox++)
+                            {
+                                for (int oy = -2; oy <= 2; oy++)
+                                {
+                                    if (ox != 0 || oy != 0)
+                                    {
+                                        _spriteBatch.DrawString(font, costText, costPos + new Vector2(ox, oy), Color.DarkRed * 0.7f);
+                                    }
+                                }
+                            }
+                            _spriteBatch.DrawString(font, costText, costPos, Color.Red);
+                        }
+                    }
+                    currentRow += 2; // Extra space before shop
+                    
+                    // Row 5: Shop Title
+                    if (moneyAnimationDone && slamAnimationDone)
+                    {
+                        string shopTitle = "=== SHOP ===";
+                        Vector2 shopTitleSize = font.MeasureString(shopTitle);
+                        _spriteBatch.DrawString(font, shopTitle, new Vector2((screenWidth - shopTitleSize.X) / 2, START_Y + currentRow * ROW_HEIGHT), Color.Cyan);
+                        currentRow++;
+                        
+                        // Shop border
+                        int shopBoxX = screenWidth / 2 - 130;
+                        int shopBoxY = START_Y + (currentRow - 1) * ROW_HEIGHT - 5;
+                        int shopBoxWidth = 260;
+                        int shopBoxHeight = 205;
+                        
+                        _spriteBatch.Draw(white, new Rectangle(shopBoxX, shopBoxY, shopBoxWidth, 3), Color.Cyan);
+                        _spriteBatch.Draw(white, new Rectangle(shopBoxX, shopBoxY + shopBoxHeight - 3, shopBoxWidth, 3), Color.Cyan);
+                        _spriteBatch.Draw(white, new Rectangle(shopBoxX, shopBoxY, 3, shopBoxHeight), Color.Cyan);
+                        _spriteBatch.Draw(white, new Rectangle(shopBoxX + shopBoxWidth - 3, shopBoxY, 3, shopBoxHeight), Color.Cyan);
+                        
+                        // Row 6-8: Shop Buttons
+                        string[] shopTexts = { "+3% Speed $25", "Extra Ball $5", "Shoot 6s $15" };
+                        
+                        for (int i = 0; i < 3; i++)
+                        {
+                            bool canAfford = (i == 0 && bankBalance >= 25) || (i == 1 && bankBalance >= 5) || (i == 2 && bankBalance >= 15);
+                            Color buttonColor = shopButtonsHovered[i] && canAfford ? Color.LightBlue : (canAfford ? Color.Blue : Color.DarkGray);
+                            _spriteBatch.Draw(white, shopButtons[i], buttonColor);
+                            
+                            Vector2 textSize = font.MeasureString(shopTexts[i]);
+                            Vector2 textPos = new Vector2(
+                                shopButtons[i].X + (shopButtons[i].Width - textSize.X) / 2,
+                                shopButtons[i].Y + (shopButtons[i].Height - textSize.Y) / 2
+                            );
+                            _spriteBatch.DrawString(font, shopTexts[i], textPos, canAfford ? Color.White : Color.Gray);
+                        }
+                        currentRow += 3;
+                        
+                        // Row 9: Next Level Button
+                        Color nextColor = nextLevelButtonHovered ? Color.LightGreen : Color.Green;
+                        _spriteBatch.Draw(white, nextLevelButton, nextColor);
+                        string nextText = "NEXT LEVEL";
+                        Vector2 nextTextSize = font.MeasureString(nextText);
+                        Vector2 nextTextPos = new Vector2(
+                            nextLevelButton.X + (nextLevelButton.Width - nextTextSize.X) / 2,
+                            nextLevelButton.Y + (nextLevelButton.Height - nextTextSize.Y) / 2
+                        );
+                        _spriteBatch.DrawString(font, nextText, nextTextPos, Color.Black);
                     }
                 }
             }
