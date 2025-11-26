@@ -1,7 +1,22 @@
-# MonoGame Content Builder
 
-/#! /usr/bin/env mgcb
+#----------------------------- Global Properties ----------------------------#
 
-# Content is empty - DefaultFont.spritefont should be processed with the MonoGame pipeline tool when building.
+/outputDir:bin/$(Platform)
+/intermediateDir:obj/$(Platform)
+/platform:DesktopGL
+/config:
+/profile:Reach
+/compress:False
 
-# Add files here when using the MonoGame Pipeline Tool
+#-------------------------------- References --------------------------------#
+
+
+#---------------------------------- Content ---------------------------------#
+
+#begin DefaultFont.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:DefaultFont.spritefont
+

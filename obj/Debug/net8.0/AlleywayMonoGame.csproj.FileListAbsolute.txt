@@ -30,3 +30,4 @@ C:\Users\Labor\Documents\coding\AlleywayMonoGame\obj\Debug\net8.0\refint\Alleywa
 C:\Users\Labor\Documents\coding\AlleywayMonoGame\obj\Debug\net8.0\AlleywayMonoGame.pdb
 C:\Users\Labor\Documents\coding\AlleywayMonoGame\obj\Debug\net8.0\AlleywayMonoGame.genruntimeconfig.cache
 C:\Users\Labor\Documents\coding\AlleywayMonoGame\obj\Debug\net8.0\ref\AlleywayMonoGame.dll
+C:\Users\Labor\Documents\coding\AlleywayMonoGame\obj\Debug\net8.0\AlleywayMonoGame.sourcelink.json
