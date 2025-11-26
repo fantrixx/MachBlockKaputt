@@ -34,8 +34,6 @@ namespace AlleywayMonoGame
         private int ballSize = 10;
 
         private List<Rectangle> bricks = new List<Rectangle>();
-        private int brickRows = 5;
-        private int brickCols = 10;
         private int level = 1;
         private bool levelCleared = false;
         private float levelClearTimer = 0f;
@@ -51,6 +49,7 @@ namespace AlleywayMonoGame
 
         private int score = 0;
         private int lives = 1;
+        private int bankBalance = 0; // Money for shop upgrades
 
         // Special power-up system
         private List<int> specialBricks = new List<int>(); // indices of special bricks (shoot power)
@@ -69,6 +68,30 @@ namespace AlleywayMonoGame
         private Rectangle quitButton;
         private bool retryButtonHovered = false;
         private bool quitButtonHovered = false;
+        
+        // Level complete state
+        private bool levelComplete = false;
+        private float animationTimer = 0f;
+        private int animatedMoney = 0;
+        private bool moneyAnimationDone = false;
+        private Rectangle nextLevelButton;
+        private bool nextLevelButtonHovered = false;
+        private Rectangle[] shopButtons = new Rectangle[3];
+        private bool[] shopButtonsHovered = new bool[3];
+        private int levelCompleteTimeBonus = 0;
+        
+        // Money slam animation
+        private float slamY = 0f; // Y position for slam animation
+        private float slamVelocity = 0f; // Velocity for bounce
+        private float slamScale = 1f; // Scale for impact effect
+        private bool slamAnimationDone = false;
+        private float glowPulse = 0f; // For pulsing glow effect
+        
+        // Shop upgrades (persistent across levels)
+        private float paddleSpeedMultiplier = 1.0f;
+        private int extraBallsPurchased = 0; // Count of extra balls to spawn
+        private bool startWithShootMode = false;
+        private bool specialBricksSetForLevel = false; // Track if special bricks were already set
         
         // Timer system
         private float gameTimer = 0f;
@@ -143,18 +166,29 @@ namespace AlleywayMonoGame
         private void SetupLevel(int lvl)
         {
             bricks.Clear();
-            int brickWidth = screenWidth / brickCols;
-            int brickHeight = 20;
-            int brickStartY = gameAreaTop + 30; // Starte Bricks 30px unter der Trennlinie
+            
+            // Progressive difficulty: more bricks each level
+            int totalLevels = 10;
+            int baseRows = 3;
+            int baseCols = 6;
+            
+            // Increase rows and cols with level (capped at level 10)
+            int currentLevel = Math.Min(lvl, totalLevels);
+            int currentRows = baseRows + (currentLevel - 1);
+            int currentCols = baseCols + (currentLevel - 1);
+            
+            int brickWidth = screenWidth / currentCols;
+            int brickHeight = Math.Max(10, 20 - currentLevel); // Smaller bricks at higher levels
+            int brickStartY = gameAreaTop + 30;
 
             int pattern = (lvl - 1) % 4; // choose among 4 formations
             switch (pattern)
             {
                 // pattern 0: full grid (classic)
                 case 0:
-                    for (int r = 0; r < brickRows; r++)
+                    for (int r = 0; r < currentRows; r++)
                     {
-                        for (int c = 0; c < brickCols; c++)
+                        for (int c = 0; c < currentCols; c++)
                         {
                             bricks.Add(new Rectangle(c * brickWidth, brickStartY + r * brickHeight, brickWidth - 2, brickHeight - 2));
                         }
@@ -163,9 +197,9 @@ namespace AlleywayMonoGame
 
                 // pattern 1: pyramid
                 case 1:
-                    for (int r = 0; r < brickRows; r++)
+                    for (int r = 0; r < currentRows; r++)
                     {
-                        int cols = brickCols - r * 2;
+                        int cols = Math.Max(1, currentCols - r * 2);
                         int startCol = r;
                         for (int c = 0; c < cols; c++)
                         {
@@ -177,9 +211,9 @@ namespace AlleywayMonoGame
 
                 // pattern 2: checkerboard
                 case 2:
-                    for (int r = 0; r < brickRows; r++)
+                    for (int r = 0; r < currentRows; r++)
                     {
-                        for (int c = 0; c < brickCols; c++)
+                        for (int c = 0; c < currentCols; c++)
                         {
                             if ((r + c) % 2 == 0)
                             {
@@ -192,9 +226,9 @@ namespace AlleywayMonoGame
 
                 // pattern 3: gaps (every third column empty)
                 default:
-                    for (int r = 0; r < brickRows; r++)
+                    for (int r = 0; r < currentRows; r++)
                     {
-                        for (int c = 0; c < brickCols; c++)
+                        for (int c = 0; c < currentCols; c++)
                         {
                             if (c % 3 != 0)
                             {
@@ -206,35 +240,40 @@ namespace AlleywayMonoGame
                     break;
             }
             
-            // Randomly select some bricks as special (about 40% shoot, 40% extra ball)
-            specialBricks.Clear();
-            extraBallBricks.Clear();
-            
-            int shootCount = Math.Max(1, (bricks.Count * 40) / 100); // 40% shoot power
-            int extraBallCount = Math.Max(1, (bricks.Count * 40) / 100); // 40% extra ball
-            
-            // Add shoot power bricks (try multiple times to ensure we get enough)
-            int attempts = 0;
-            while (specialBricks.Count < shootCount && attempts < shootCount * 3)
+            // Only set special bricks once per level (not when shoot mode ends)
+            if (!specialBricksSetForLevel)
             {
-                int randomIndex = rand.Next(bricks.Count);
-                if (!specialBricks.Contains(randomIndex) && !extraBallBricks.Contains(randomIndex))
+                specialBricks.Clear();
+                extraBallBricks.Clear();
+                
+                int shootCount = Math.Max(1, (bricks.Count * 40) / 100); // 40% shoot power
+                int extraBallCount = Math.Max(1, (bricks.Count * 40) / 100); // 40% extra ball
+                
+                // Add shoot power bricks (try multiple times to ensure we get enough)
+                int attempts = 0;
+                while (specialBricks.Count < shootCount && attempts < shootCount * 3)
                 {
-                    specialBricks.Add(randomIndex);
+                    int randomIndex = rand.Next(bricks.Count);
+                    if (!specialBricks.Contains(randomIndex) && !extraBallBricks.Contains(randomIndex))
+                    {
+                        specialBricks.Add(randomIndex);
+                    }
+                    attempts++;
                 }
-                attempts++;
-            }
-            
-            // Add extra ball bricks (try multiple times to ensure we get enough)
-            attempts = 0;
-            while (extraBallBricks.Count < extraBallCount && attempts < extraBallCount * 3)
-            {
-                int randomIndex = rand.Next(bricks.Count);
-                if (!specialBricks.Contains(randomIndex) && !extraBallBricks.Contains(randomIndex))
+                
+                // Add extra ball bricks (try multiple times to ensure we get enough)
+                attempts = 0;
+                while (extraBallBricks.Count < extraBallCount && attempts < extraBallCount * 3)
                 {
-                    extraBallBricks.Add(randomIndex);
+                    int randomIndex = rand.Next(bricks.Count);
+                    if (!specialBricks.Contains(randomIndex) && !extraBallBricks.Contains(randomIndex))
+                    {
+                        extraBallBricks.Add(randomIndex);
+                    }
+                    attempts++;
                 }
-                attempts++;
+                
+                specialBricksSetForLevel = true;
             }
         }
 
@@ -606,6 +645,163 @@ namespace AlleywayMonoGame
                 
                 return; // Skip normal game updates
             }
+            
+            // Handle level complete state with shop
+            if (levelComplete)
+            {
+                animationTimer += dt;
+                
+                // Animate money counting
+                if (!moneyAnimationDone && animationTimer > 1f)
+                {
+                    float animSpeed = dt * 200f; // Count up money (fast)
+                    animatedMoney += (int)animSpeed;
+                    if (animatedMoney >= levelCompleteTimeBonus)
+                    {
+                        animatedMoney = levelCompleteTimeBonus;
+                        moneyAnimationDone = true;
+                        bankBalance += levelCompleteTimeBonus;
+                        
+                        // Start slam animation
+                        slamY = -100f; // Start above screen
+                        slamVelocity = 0f;
+                        slamScale = 1f;
+                        slamAnimationDone = false;
+                    }
+                }
+                
+                // Slam animation for final balance
+                if (moneyAnimationDone && !slamAnimationDone)
+                {
+                    float gravity = 1200f * dt; // Slower gravity
+                    slamVelocity += gravity;
+                    slamY += slamVelocity;
+                    
+                    float targetY = 165f; // Final position
+                    if (slamY >= targetY)
+                    {
+                        slamY = targetY;
+                        slamVelocity *= -0.4f; // Bounce with damping
+                        slamScale = 1.2f; // Impact effect
+                        
+                        // Create dust cloud on first impact
+                        if (Math.Abs(slamVelocity) > 100f)
+                        {
+                            Vector2 impactPos = new Vector2(screenWidth / 2, 140 + 25 + targetY + 20);
+                            for (int i = 0; i < 15; i++)
+                            {
+                                float angle = rand.Next(360) * (float)Math.PI / 180f;
+                                float speed = 50f + rand.Next(100);
+                                particles.Add(new Particle
+                                {
+                                    Position = impactPos,
+                                    Velocity = new Vector2((float)Math.Cos(angle) * speed, (float)Math.Sin(angle) * speed * 0.3f),
+                                    Lifetime = 1.5f + (float)rand.NextDouble() * 1.0f,
+                                    MaxLifetime = 1.5f + (float)rand.NextDouble() * 1.0f,
+                                    Size = 4f + rand.Next(6),
+                                    Color = Color.Gray
+                                });
+                            }
+                        }
+                        
+                        // Stop bouncing when velocity is low
+                        if (Math.Abs(slamVelocity) < 30f)
+                        {
+                            slamVelocity = 0f;
+                            slamAnimationDone = true;
+                        }
+                    }
+                    
+                    // Scale returns to normal
+                    if (slamScale > 1f)
+                    {
+                        slamScale -= dt * 1.5f;
+                        if (slamScale < 1f) slamScale = 1f;
+                    }
+                }
+                
+                // Pulsing glow effect
+                glowPulse += dt * 3f;
+                
+                var mouseState = Mouse.GetState();
+                Point mousePos = new Point(mouseState.X, mouseState.Y);
+                
+                // Check shop button hovers
+                for (int i = 0; i < 3; i++)
+                {
+                    shopButtonsHovered[i] = shopButtons[i].Contains(mousePos);
+                }
+                nextLevelButtonHovered = nextLevelButton.Contains(mousePos);
+                
+                // Handle clicks
+                if (mouseState.LeftButton == ButtonState.Pressed)
+                {
+                    // Shop button 1: +3% paddle speed for $25
+                    if (shopButtonsHovered[0] && bankBalance >= 25 && moneyAnimationDone)
+                    {
+                        bankBalance -= 25;
+                        paddleSpeedMultiplier += 0.03f;
+                    }
+                    // Shop button 2: Extra ball for $5 (can buy multiple)
+                    else if (shopButtonsHovered[1] && bankBalance >= 5 && moneyAnimationDone)
+                    {
+                        bankBalance -= 5;
+                        extraBallsPurchased++;
+                    }
+                    // Shop button 3: Start with shoot mode for $15
+                    else if (shopButtonsHovered[2] && bankBalance >= 15 && moneyAnimationDone)
+                    {
+                        bankBalance -= 15;
+                        startWithShootMode = true;
+                    }
+                    // Next level button
+                    else if (nextLevelButtonHovered && moneyAnimationDone)
+                    {
+                        level++;
+                        levelComplete = false;
+                        gameTimer = 0f;
+                        specialBricksSetForLevel = false; // Reset for new level
+                        SetupLevel(level);
+                        
+                        // Reset ball/paddle
+                        paddle = new Rectangle(screenWidth / 2 - 50, screenHeight - 40, 100, 20);
+                        balls.Clear();
+                        balls.Add(new Ball
+                        {
+                            Rect = new Rectangle(screenWidth / 2 - ballSize / 2, paddle.Y - ballSize - 1, ballSize, ballSize),
+                            Velocity = new Vector2(150, -150),
+                            IsLaunched = false
+                        });
+                        
+                        // Apply shop upgrades
+                        // Launch all purchased extra balls immediately
+                        for (int i = 0; i < extraBallsPurchased; i++)
+                        {
+                            float angle = -90f + (i + 1) * 30f; // Spread balls at different angles
+                            float radians = angle * (float)Math.PI / 180f;
+                            float speed = 200f;
+                            balls.Add(new Ball
+                            {
+                                Rect = new Rectangle(screenWidth / 2 - ballSize / 2, paddle.Y - ballSize - 1, ballSize, ballSize),
+                                Velocity = new Vector2((float)Math.Cos(radians) * speed, (float)Math.Sin(radians) * speed),
+                                IsLaunched = true // Launch immediately
+                            });
+                        }
+                        extraBallsPurchased = 0; // Reset after use
+                        
+                        if (startWithShootMode)
+                        {
+                            canShoot = true;
+                            shootPowerTimer = 6f;
+                            startWithShootMode = false; // One-time use
+                        }
+                        
+                        timerRunning = true; // Start timer immediately
+                    }
+                }
+                
+                return; // Skip normal game updates
+            }
 
             // Handle level cleared state: wait for user input or auto-advance
             if (levelCleared)
@@ -632,6 +828,12 @@ namespace AlleywayMonoGame
             }
 
             var kb = Keyboard.GetState();
+            
+            // CHEAT: Press P to instantly win level (for testing)
+            if (kb.IsKeyDown(Keys.P) && previousKeyState.IsKeyUp(Keys.P))
+            {
+                bricks.Clear(); // Clear all bricks to trigger level complete
+            }
             
             // Update game timer if running
             if (timerRunning)
@@ -668,6 +870,21 @@ namespace AlleywayMonoGame
                 proj.Y -= (int)(projectileSpeed * dt);
                 projectiles[i] = proj;
                 
+                // Create smoke trail behind projectile
+                if (rand.Next(100) < 80) // 80% chance per frame
+                {
+                    Vector2 smokePos = new Vector2(proj.X + proj.Width / 2, proj.Y + proj.Height);
+                    particles.Add(new Particle
+                    {
+                        Position = smokePos,
+                        Velocity = new Vector2((rand.Next(-20, 20)), 30f + rand.Next(40)), // Moves down slightly
+                        Lifetime = 6.0f, // 6 seconds - very visible
+                        MaxLifetime = 6.0f,
+                        Size = 8f + rand.Next(6), // Larger particles
+                        Color = Color.White // Bright white smoke
+                    });
+                }
+                
                 // Remove if off-screen
                 if (proj.Y + proj.Height < gameAreaTop)
                 {
@@ -676,9 +893,9 @@ namespace AlleywayMonoGame
             }
 
             if (kb.IsKeyDown(Keys.Left) || kb.IsKeyDown(Keys.A))
-                paddleVelocity.X = -paddleSpeed;
+                paddleVelocity.X = -paddleSpeed * paddleSpeedMultiplier;
             else if (kb.IsKeyDown(Keys.Right) || kb.IsKeyDown(Keys.D))
-                paddleVelocity.X = paddleSpeed;
+                paddleVelocity.X = paddleSpeed * paddleSpeedMultiplier;
             else
                 paddleVelocity.X = 0;
 
@@ -788,8 +1005,7 @@ namespace AlleywayMonoGame
                         {
                             var b = bricks[i];
                             var center = new Vector2(b.Center.X, b.Center.Y);
-                            // compute brick color based on its row so explosions match brick color
-                            int brickWidth = screenWidth / brickCols;
+                            // compute brick color based on its row
                             int brickHeight = 20;
                             int row = (b.Y - 50) / (brickHeight + 2);
                             Color brickColor;
@@ -940,7 +1156,6 @@ namespace AlleywayMonoGame
                         {
                             var b = bricks[i];
                             var center = new Vector2(b.Center.X, b.Center.Y);
-                            int brickWidth = screenWidth / brickCols;
                             int brickHeight = 20;
                             int row = (b.Y - 50) / (brickHeight + 2);
                             Color brickColor;
@@ -1003,12 +1218,32 @@ namespace AlleywayMonoGame
                 }
 
             // if all bricks cleared -> level finished
-            if (bricks.Count == 0)
+            if (bricks.Count == 0 && !levelComplete)
             {
-                level++;
-                levelCleared = true;
-                levelClearTimer = 0f;
+                levelComplete = true;
+                levelCleared = false;
                 timerRunning = false; // Stop timer when all bricks cleared
+                animationTimer = 0f;
+                moneyAnimationDone = false;
+                animatedMoney = 0;
+                
+                // Calculate time bonus: 100$ - time in seconds
+                levelCompleteTimeBonus = Math.Max(0, 100 - (int)gameTimer);
+                
+                // Setup shop buttons - aligned with border in Draw
+                // yOffset in Draw: 80 (stats) + 60 (money) = 140, then +60 for shop = 200
+                // Shop starts at y=200, border at y=195, title at y=205, buttons start at y=235
+                int buttonWidth = 220;
+                int buttonHeight = 35;
+                int shopStartY = 235; // Matches Draw rendering position
+                for (int i = 0; i < 3; i++)
+                {
+                    shopButtons[i] = new Rectangle(screenWidth / 2 - buttonWidth / 2, shopStartY + i * 42, buttonWidth, buttonHeight);
+                }
+                
+                // Next level button - below shop border
+                nextLevelButton = new Rectangle(screenWidth / 2 - 100, shopStartY + 3 * 42 + 15, 200, 50);
+                
                 // stop all balls movement
                 foreach (Ball b in balls)
                 {
@@ -1086,7 +1321,9 @@ namespace AlleywayMonoGame
                 Color[] colors = { Color.Red, Color.Orange, Color.Yellow, Color.Green, Color.Blue };
                 for (int i = 0; i < bricks.Count; i++)
                 {
-                    Color brickColor = colors[(i / brickCols) % colors.Length];
+                    // Calculate row based on Y position
+                    int row = (bricks[i].Y - 50) / 22; // approximate row calculation
+                    Color brickColor = colors[row % colors.Length];
                     
                     // Special bricks are MUCH more visible (only when shoot mode is NOT active)
                     // Both shoot power and extra ball bricks are deactivated during shoot mode
@@ -1158,6 +1395,10 @@ namespace AlleywayMonoGame
                 if (font != null)
                 {
                     _spriteBatch.DrawString(font, scoreStr, new Vector2(screenWidth - 120, 15), Color.White);
+                    
+                    // Bank balance display (left of score)
+                    string bankStr = $"${bankBalance}";
+                    _spriteBatch.DrawString(font, bankStr, new Vector2(screenWidth - 250, 15), Color.Gold);
                 }
                 else
                 {
@@ -1190,7 +1431,7 @@ namespace AlleywayMonoGame
                 if (font != null)
                 {
                     // show level after hearts
-                    _spriteBatch.DrawString(font, $"Level: {level}", new Vector2(10 + lives * 28 + 10, 15), Color.White);
+                    _spriteBatch.DrawString(font, $"Level: {level}/10", new Vector2(10 + lives * 28 + 10, 15), Color.White);
                     
                     // Draw game timer in center top of UI
                     int totalSeconds = (int)gameTimer;
@@ -1252,6 +1493,140 @@ namespace AlleywayMonoGame
                 {
                     // draw a simple box and text-less prompt (no font available)
                     _spriteBatch.Draw(white, new Rectangle(screenWidth/2 - 150, screenHeight/2 - 30, 300, 60), Color.Gray);
+                }
+            }
+            
+            // draw level complete overlay with shop
+            if (levelComplete)
+            {
+                // semi-transparent overlay
+                if (white != null)
+                {
+                    _spriteBatch.Draw(white, new Rectangle(0, 0, screenWidth, screenHeight), Color.Black * 0.7f);
+                }
+
+                if (font != null)
+                {
+                    // Title
+                    string title = "DONE!";
+                    Vector2 titleSize = font.MeasureString(title);
+                    Vector2 titlePos = new Vector2((screenWidth - titleSize.X) / 2, 30);
+                    
+                    // Green glow effect
+                    for (int offsetX = -2; offsetX <= 2; offsetX++)
+                    {
+                        for (int offsetY = -2; offsetY <= 2; offsetY++)
+                        {
+                            if (offsetX != 0 || offsetY != 0)
+                            {
+                                _spriteBatch.DrawString(font, title, titlePos + new Vector2(offsetX, offsetY), Color.DarkGreen);
+                            }
+                        }
+                    }
+                    _spriteBatch.DrawString(font, title, titlePos, Color.LightGreen);
+                    
+                    // Stats
+                    int yOffset = 80;
+                    string livesText = $"Lives: {lives}";
+                    string timeText = $"Time: {(int)gameTimer / 60:D2}:{(int)gameTimer % 60:D2}";
+                    _spriteBatch.DrawString(font, livesText, new Vector2(screenWidth / 2 - 100, yOffset), Color.White);
+                    _spriteBatch.DrawString(font, timeText, new Vector2(screenWidth / 2 - 100, yOffset + 25), Color.White);
+                    
+                    // Money calculation animation
+                    yOffset += 60;
+                    string calc1 = $"Time Bonus: $100 - {(int)gameTimer}s = ${levelCompleteTimeBonus}";
+                    _spriteBatch.DrawString(font, calc1, new Vector2(screenWidth / 2 - 140, yOffset), Color.Yellow);
+                    
+                    if (!moneyAnimationDone)
+                    {
+                        string calc2 = $"Counting... ${animatedMoney}";
+                        _spriteBatch.DrawString(font, calc2, new Vector2(screenWidth / 2 - 140, yOffset + 25), Color.Gray);
+                    }
+                    
+                    // Space between calculation and balance/shop
+                    yOffset += 55;
+                    
+                    // Shop section - only show after money animation is done
+                    if (moneyAnimationDone && slamAnimationDone)
+                    {
+                        // Shop section with border (moved down to make room for balance)
+                        int shopYOffset = yOffset + 60;
+                        int shopBoxX = screenWidth / 2 - 130;
+                        int shopBoxY = yOffset - 5;
+                        int shopBoxWidth = 260;
+                        int shopBoxHeight = 165; // Smaller to not overlap Next button
+                        
+                        // Draw shop border
+                        _spriteBatch.Draw(white, new Rectangle(shopBoxX, shopBoxY, shopBoxWidth, 3), Color.Cyan);
+                        _spriteBatch.Draw(white, new Rectangle(shopBoxX, shopBoxY + shopBoxHeight - 3, shopBoxWidth, 3), Color.Cyan);
+                        _spriteBatch.Draw(white, new Rectangle(shopBoxX, shopBoxY, 3, shopBoxHeight), Color.Cyan);
+                        _spriteBatch.Draw(white, new Rectangle(shopBoxX + shopBoxWidth - 3, shopBoxY, 3, shopBoxHeight), Color.Cyan);
+                        
+                        // Shop title
+                        string shopTitle = "=== SHOP ===";
+                        Vector2 shopTitleSize = font.MeasureString(shopTitle);
+                        _spriteBatch.DrawString(font, shopTitle, new Vector2((screenWidth - shopTitleSize.X) / 2, yOffset + 5), Color.Cyan);
+                        
+                        // Shop buttons with smaller text
+                        string[] shopTexts = {
+                            "+3% Speed $25",
+                            "Extra Ball $5",
+                            "Shoot 6s $15"
+                        };
+                        
+                        for (int i = 0; i < 3; i++)
+                        {
+                            bool canAfford = (i == 0 && bankBalance >= 25) || (i == 1 && bankBalance >= 5) || (i == 2 && bankBalance >= 15);
+                            Color buttonColor = shopButtonsHovered[i] && canAfford ? Color.LightBlue : (canAfford ? Color.Blue : Color.DarkGray);
+                            _spriteBatch.Draw(white, shopButtons[i], buttonColor);
+                            
+                            Vector2 textSize = font.MeasureString(shopTexts[i]);
+                            Vector2 textPos = new Vector2(
+                                shopButtons[i].X + (shopButtons[i].Width - textSize.X) / 2,
+                                shopButtons[i].Y + (shopButtons[i].Height - textSize.Y) / 2
+                            );
+                            _spriteBatch.DrawString(font, shopTexts[i], textPos, canAfford ? Color.White : Color.Gray);
+                        }
+                        
+                        // Next level button
+                        Color nextColor = nextLevelButtonHovered ? Color.LightGreen : Color.Green;
+                        _spriteBatch.Draw(white, nextLevelButton, nextColor);
+                        string nextText = "NEXT LEVEL";
+                        Vector2 nextTextSize = font.MeasureString(nextText);
+                        Vector2 nextTextPos = new Vector2(
+                            nextLevelButton.X + (nextLevelButton.Width - nextTextSize.X) / 2,
+                            nextLevelButton.Y + (nextLevelButton.Height - nextTextSize.Y) / 2
+                        );
+                        _spriteBatch.DrawString(font, nextText, nextTextPos, Color.Black);
+                    }
+                    
+                    // Draw final balance AFTER shop so it appears on top
+                    if (moneyAnimationDone)
+                    {
+                        string finalBalance = $"${bankBalance}";
+                        Vector2 balanceSize = font.MeasureString(finalBalance);
+                        Vector2 balancePos = new Vector2((screenWidth - balanceSize.X * slamScale) / 2, yOffset + slamY);
+                        
+                        // Subtle pulsing glow effect (readable text)
+                        float glowIntensity = (float)Math.Sin(glowPulse) * 0.15f + 0.2f; // 0.05 to 0.35
+                        for (int ox = -2; ox <= 2; ox++)
+                        {
+                            for (int oy = -2; oy <= 2; oy++)
+                            {
+                                if (ox != 0 || oy != 0)
+                                {
+                                    float distance = (float)Math.Sqrt(ox * ox + oy * oy);
+                                    if (distance <= 2f)
+                                    {
+                                        _spriteBatch.DrawString(font, finalBalance, balancePos + new Vector2(ox, oy), 
+                                            Color.Gold * (glowIntensity / distance), 0f, Vector2.Zero, slamScale, SpriteEffects.None, 0f);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        _spriteBatch.DrawString(font, finalBalance, balancePos, Color.Gold, 0f, Vector2.Zero, slamScale, SpriteEffects.None, 0f);
+                    }
                 }
             }
             
