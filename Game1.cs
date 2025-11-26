@@ -537,12 +537,17 @@ namespace AlleywayMonoGame
                 }
 
                 // UI
-                string text = $"Score: {score}   Lives: {lives}";
+                string scoreText = $"Score: {score:D8}"; // 8-digit score with leading zeros
+                string livesText = $"Lives: {lives}";
                 if (font != null)
                 {
-                    _spriteBatch.DrawString(font, text, new Vector2(10, 10), Color.White);
+                    // draw lives on left
+                    _spriteBatch.DrawString(font, livesText, new Vector2(10, 10), Color.White);
+                    // draw 8-digit score on right (black text for visibility on blue background)
+                    var scoreSize = font.MeasureString(scoreText);
+                    _spriteBatch.DrawString(font, scoreText, new Vector2(screenWidth - scoreSize.X - 10, 10), Color.Black);
                     // show level
-                    _spriteBatch.DrawString(font, $"Level: {level}", new Vector2(screenWidth - 120, 10), Color.White);
+                    _spriteBatch.DrawString(font, $"Level: {level}", new Vector2(screenWidth - 120, 40), Color.White);
                 }
                 else
                 {
