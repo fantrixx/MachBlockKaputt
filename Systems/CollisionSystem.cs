@@ -36,11 +36,13 @@ namespace AlleywayMonoGame.Systems
                 {
                     ball.Rect = new Rectangle(0, ball.Rect.Y, ball.Rect.Width, ball.Rect.Height);
                     ball.Velocity = new Vector2(-ball.Velocity.X, ball.Velocity.Y);
+                    result.WallBounce = true;
                 }
                 if (ball.Rect.X + ball.Rect.Width >= screenWidth)
                 {
                     ball.Rect = new Rectangle(screenWidth - ball.Rect.Width, ball.Rect.Y, ball.Rect.Width, ball.Rect.Height);
                     ball.Velocity = new Vector2(-ball.Velocity.X, ball.Velocity.Y);
+                    result.WallBounce = true;
                 }
                 
                 // Top collision
@@ -48,6 +50,7 @@ namespace AlleywayMonoGame.Systems
                 {
                     ball.Rect = new Rectangle(ball.Rect.X, gameAreaTop, ball.Rect.Width, ball.Rect.Height);
                     ball.Velocity = new Vector2(ball.Velocity.X, -ball.Velocity.Y);
+                    result.WallBounce = true;
                 }
 
                 // Paddle collision
@@ -59,6 +62,7 @@ namespace AlleywayMonoGame.Systems
                     float hitPos = (ball.Rect.Center.X - paddle.X) / (float)paddle.Width - 0.5f;
                     ball.Velocity = new Vector2(ball.Velocity.X + hitPos * 300, ball.Velocity.Y);
                     result.PaddleHit = true;
+                    result.PaddleBounce = true;
                 }
 
                 // Ball-to-ball collision
@@ -169,5 +173,7 @@ namespace AlleywayMonoGame.Systems
         public List<(int index, Brick brick)> BricksHit { get; } = new List<(int, Brick)>();
         public List<int> BallsLost { get; } = new List<int>();
         public bool PaddleHit { get; set; }
+        public bool WallBounce { get; set; }
+        public bool PaddleBounce { get; set; }
     }
 }

@@ -1,3 +1,5 @@
+using Microsoft.Xna.Framework;
+
 namespace AlleywayMonoGame.Services
 {
     /// <summary>
@@ -19,6 +21,7 @@ namespace AlleywayMonoGame.Services
         private const int ExtraBallCost = 5;
         private const int ShootModeCost = 15;
         private const int PaddleSizeCost = 40;
+        private const int RerollCost = 5;
         private const float SpeedUpgradeIncrement = 0.03f;
         private const float PaddleSizeIncrement = 0.04f;
 
@@ -38,6 +41,21 @@ namespace AlleywayMonoGame.Services
                 ShopItem.PaddleSize => BankBalance >= PaddleSizeCost,
                 _ => false
             };
+        }
+
+        public bool CanAffordReroll()
+        {
+            return BankBalance >= RerollCost;
+        }
+
+        public bool Reroll()
+        {
+            if (!CanAffordReroll())
+                return false;
+
+            BankBalance -= RerollCost;
+            TotalSpent += RerollCost;
+            return true;
         }
 
         public bool Purchase(ShopItem item)
@@ -127,6 +145,42 @@ namespace AlleywayMonoGame.Services
                 ShopItem.ShootMode => "Shoot 6s",
                 ShopItem.PaddleSize => "+4% Size",
                 _ => "Unknown"
+            };
+        }
+
+        public string GetItemDescription(ShopItem item)
+        {
+            return item switch
+            {
+                ShopItem.SpeedUpgrade => "Increases paddle\nmovement speed by 3%",
+                ShopItem.ExtraBall => "Adds one extra ball\nat level start",
+                ShopItem.ShootMode => "Start next level\nwith shoot mode active",
+                ShopItem.PaddleSize => "Increases paddle\nwidth by 4%",
+                _ => "Unknown item"
+            };
+        }
+
+        public string GetItemIcon(ShopItem item)
+        {
+            return item switch
+            {
+                ShopItem.SpeedUpgrade => ">",
+                ShopItem.ExtraBall => "O",
+                ShopItem.ShootMode => "^",
+                ShopItem.PaddleSize => "=",
+                _ => "?"
+            };
+        }
+
+        public Color GetItemColor(ShopItem item)
+        {
+            return item switch
+            {
+                ShopItem.SpeedUpgrade => new Color(100, 200, 255), // Blue - Movement
+                ShopItem.ExtraBall => new Color(255, 215, 0),       // Gold - Valuable
+                ShopItem.ShootMode => new Color(255, 100, 100),     // Red - Combat
+                ShopItem.PaddleSize => new Color(150, 255, 150),    // Green - Size
+                _ => Color.Gray
             };
         }
     }

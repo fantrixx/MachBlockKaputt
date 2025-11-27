@@ -13,6 +13,8 @@ namespace AlleywayMonoGame.Services
         
         public SoundEffect? ExplosionSound { get; private set; }
         public SoundEffect? PaddleSound { get; private set; }
+        public SoundEffect? WallBounceSound { get; private set; }
+        public SoundEffect? PaddleBounceSound { get; private set; }
         public SoundEffect? RocketSound { get; private set; }
         public SoundEffect? ProjectileExplosionSound { get; private set; }
         public SoundEffect? CashRegisterSound { get; private set; }
@@ -21,6 +23,8 @@ namespace AlleywayMonoGame.Services
         public SoundEffect? GameOverSound { get; private set; }
         public SoundEffect? LevelCompleteSound { get; private set; }
         public SoundEffect? VictorySound { get; private set; }
+        public SoundEffect? PaddleEnlargeSound { get; private set; }
+        public SoundEffect? PaddleShrinkSound { get; private set; }
 
         public AudioService()
         {
@@ -34,6 +38,8 @@ namespace AlleywayMonoGame.Services
             {
                 ExplosionSound = CreateExplosionSoundEffect(440, 0.12f, 0.6f);
                 PaddleSound = CreateExplosionSoundEffect(1000, 0.06f, 0.85f);
+                WallBounceSound = CreateWallBounceSound();
+                PaddleBounceSound = CreatePaddleBounceSound();
                 RocketSound = CreateRocketSoundEffect();
                 ProjectileExplosionSound = CreateProjectileExplosionSound();
                 CashRegisterSound = CreateCashRegisterSound();
@@ -42,6 +48,8 @@ namespace AlleywayMonoGame.Services
                 GameOverSound = CreateGameOverSound();
                 LevelCompleteSound = CreateLevelCompleteSound();
                 VictorySound = CreateVictorySound();
+                PaddleEnlargeSound = CreatePaddleEnlargeSound();
+                PaddleShrinkSound = CreatePaddleShrinkSound();
             }
             catch
             {
@@ -51,6 +59,8 @@ namespace AlleywayMonoGame.Services
 
         public void PlayExplosion() => ExplosionSound?.Play();
         public void PlayPaddleHit() => PaddleSound?.Play();
+        public void PlayWallBounce() => WallBounceSound?.Play();
+        public void PlayPaddleBounce() => PaddleBounceSound?.Play();
         public void PlayRocketLaunch() => RocketSound?.Play();
         public void PlayProjectileExplosion() => ProjectileExplosionSound?.Play();
         public void PlayCashRegister() => CashRegisterSound?.Play();
@@ -59,6 +69,8 @@ namespace AlleywayMonoGame.Services
         public void PlayGameOver() => GameOverSound?.Play();
         public void PlayLevelComplete() => LevelCompleteSound?.Play();
         public void PlayVictory() => VictorySound?.Play();
+        public void PlayPaddleEnlarge() => PaddleEnlargeSound?.Play();
+        public void PlayPaddleShrink() => PaddleShrinkSound?.Play();
 
         private SoundEffect CreateExplosionSoundEffect(int frequency, float durationSeconds, float volume)
         {
@@ -77,6 +89,85 @@ namespace AlleywayMonoGame.Services
             {
                 double env = Math.Exp(-3.0 * t);
                 short sample = (short)(amplitude * env * Math.Sin(2.0 * Math.PI * frequency * t));
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreateWallBounceSound()
+        {
+            const int sampleRate = 44100;
+            float durationSeconds = 0.08f;
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            WriteWavHeader(bw, samples);
+
+            double amplitude = 32760 * 0.4f;
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Dumpfer, tiefer Sound für Wand
+                double env = Math.Exp(-15.0 * progress);
+                
+                // Tiefe Frequenz (150 Hz) für dumpfen Charakter
+                double mainTone = Math.Sin(2.0 * Math.PI * 150 * t);
+                
+                // Leichtes Obertonrauschen
+                double overtone = Math.Sin(2.0 * Math.PI * 300 * t) * 0.3;
+                
+                double mixed = (mainTone + overtone) * env;
+                
+                short sample = (short)(amplitude * mixed);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreatePaddleBounceSound()
+        {
+            const int sampleRate = 44100;
+            float durationSeconds = 0.1f;
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            WriteWavHeader(bw, samples);
+
+            double amplitude = 32760 * 0.5f;
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Dumpfer "Thud"-Sound für Paddle
+                double env = Math.Exp(-12.0 * progress);
+                
+                // Mittlere Frequenz (200 Hz) für "Thud"
+                double mainTone = Math.Sin(2.0 * Math.PI * 200 * t);
+                
+                // Obertöne für Holz/Plastik-Charakter
+                double overtone1 = Math.Sin(2.0 * Math.PI * 400 * t) * 0.4;
+                double overtone2 = Math.Sin(2.0 * Math.PI * 600 * t) * 0.2;
+                
+                double mixed = (mainTone + overtone1 + overtone2) * env;
+                
+                short sample = (short)(amplitude * mixed);
                 bw.Write(sample);
                 t += dt;
             }
@@ -521,6 +612,76 @@ namespace AlleywayMonoGame.Services
                 double mixed = (tone1 + tone2 + tone3 + squareWave) * env;
                 
                 short sample = (short)(amplitude * mixed);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreatePaddleEnlargeSound()
+        {
+            const int sampleRate = 44100;
+            float durationSeconds = 0.3f;
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            WriteWavHeader(bw, samples);
+
+            double amplitude = 32760 * 0.6f;
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Aufsteigende Tonleiter für "Vergrößerung"
+                double frequency = 300 + progress * 500; // 300 Hz -> 800 Hz
+                
+                double env = 1.0 - progress * 0.5; // Leichter Fade-out
+                
+                double tone = Math.Sin(2.0 * Math.PI * frequency * t);
+                
+                short sample = (short)(amplitude * tone * env);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreatePaddleShrinkSound()
+        {
+            const int sampleRate = 44100;
+            float durationSeconds = 0.25f;
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            WriteWavHeader(bw, samples);
+
+            double amplitude = 32760 * 0.5f;
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Absteigende Tonleiter für "Verkleinerung"
+                double frequency = 800 - progress * 500; // 800 Hz -> 300 Hz
+                
+                double env = Math.Exp(-3.0 * progress); // Schneller Fade-out
+                
+                double tone = Math.Sin(2.0 * Math.PI * frequency * t);
+                
+                short sample = (short)(amplitude * tone * env);
                 bw.Write(sample);
                 t += dt;
             }

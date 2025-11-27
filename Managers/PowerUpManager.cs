@@ -44,11 +44,17 @@ namespace AlleywayMonoGame.Managers
 
         public void ActivateBigPaddle()
         {
-            if (!BigPaddleActive && !CanShoot)
+            if (!BigPaddleActive)
             {
                 BigPaddleActive = true;
                 BigPaddleTimer = 10f;
                 _paddle.Enlarge();
+                _audioService.PlayPaddleEnlarge();
+            }
+            else
+            {
+                // Refresh timer if already active
+                BigPaddleTimer = 10f;
                 _audioService.PlayPowerUp();
             }
         }
@@ -66,6 +72,11 @@ namespace AlleywayMonoGame.Managers
                 {
                     CannonExtension = Math.Min(1f, CannonExtension + deltaTime * 3f);
                 }
+            }
+            else if (CannonExtension > 0f)
+            {
+                // Retract cannon smoothly when shoot mode ends
+                CannonExtension = Math.Max(0f, CannonExtension - deltaTime * 4f);
             }
         }
 
@@ -85,6 +96,7 @@ namespace AlleywayMonoGame.Managers
         {
             CanShoot = false;
             ShootPowerTimer = 0f;
+            CannonExtension = 0f;
             _projectiles.Clear();
         }
 
@@ -93,6 +105,7 @@ namespace AlleywayMonoGame.Managers
             BigPaddleActive = false;
             BigPaddleTimer = 0f;
             _paddle.Shrink();
+            _audioService.PlayPaddleShrink();
         }
 
         public void ResetAll()

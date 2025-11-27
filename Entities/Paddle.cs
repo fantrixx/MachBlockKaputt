@@ -13,9 +13,15 @@ namespace AlleywayMonoGame.Entities
         
         private readonly int _baseSpeed;
         private readonly int _screenWidth;
+        private readonly int _originalBaseWidth; // Store original width
         private int _baseWidth;
+        private int _targetWidth;
+        private int _currentAnimWidth;
+        
         public bool IsEnlarged { get; set; }
         public float PermanentSizeMultiplier { get; private set; } = 1.0f;
+        public bool IsAnimating { get; private set; }
+        public float AnimationProgress { get; private set; }
 
         public Paddle(int x, int y, int width, int height, int baseSpeed, int screenWidth)
         {
@@ -23,8 +29,12 @@ namespace AlleywayMonoGame.Entities
             _baseSpeed = baseSpeed;
             _screenWidth = screenWidth;
             _baseWidth = width;
+            _originalBaseWidth = width; // Store original
+            _currentAnimWidth = width;
+            _targetWidth = width;
             Velocity = Vector2.Zero;
             IsEnlarged = false;
+            IsAnimating = false;
         }
 
         public int X
@@ -66,10 +76,9 @@ namespace AlleywayMonoGame.Entities
         {
             if (!IsEnlarged)
             {
-                int centerX = Bounds.Center.X;
-                int newWidth = _baseWidth * 2;
-                Bounds = new Rectangle(centerX - newWidth / 2, Bounds.Y, newWidth, Bounds.Height);
+                _targetWidth = _baseWidth * 2;
                 IsEnlarged = true;
+                StartAnimation();
             }
         }
 
@@ -77,20 +86,46 @@ namespace AlleywayMonoGame.Entities
         {
             if (IsEnlarged)
             {
-                int centerX = Bounds.Center.X;
-                Bounds = new Rectangle(centerX - _baseWidth / 2, Bounds.Y, _baseWidth, Bounds.Height);
+                _targetWidth = _baseWidth;
                 IsEnlarged = false;
+                StartAnimation();
             }
+        }
+
+        private void StartAnimation()
+        {
+            IsAnimating = true;
+            AnimationProgress = 0f;
+            _currentAnimWidth = Bounds.Width;
+        }
+
+        public void UpdateAnimation(float deltaTime)
+        {
+            if (!IsAnimating) return;
+
+            AnimationProgress += deltaTime * 8f; // Fast animation (0.125 seconds)
+
+            if (AnimationProgress >= 1f)
+            {
+                AnimationProgress = 1f;
+                IsAnimating = false;
+            }
+
+            // Smooth easing (ease-out)
+            float t = 1f - (float)System.Math.Pow(1f - AnimationProgress, 3f);
+            int newWidth = (int)(_currentAnimWidth + (_targetWidth - _currentAnimWidth) * t);
+
+            int centerX = Bounds.Center.X;
+            Bounds = new Rectangle(centerX - newWidth / 2, Bounds.Y, newWidth, Bounds.Height);
         }
 
         public void ApplyPermanentSizeIncrease(float multiplier)
         {
             PermanentSizeMultiplier = multiplier;
             int centerX = Bounds.Center.X;
-            int newBaseWidth = (int)(_baseWidth / (PermanentSizeMultiplier - 0.04f) * PermanentSizeMultiplier);
             
-            // Update both base width and current bounds
-            _baseWidth = newBaseWidth;
+            // Calculate new base width from original width
+            _baseWidth = (int)(_originalBaseWidth * PermanentSizeMultiplier);
             
             if (IsEnlarged)
             {

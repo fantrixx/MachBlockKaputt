@@ -186,53 +186,45 @@ namespace AlleywayMonoGame.UI
         {
             _spriteBatch.Draw(_whitePixel, new Rectangle(0, 0, GameConstants.ScreenWidth, GameConstants.ScreenHeight), Color.Black * 0.8f);
 
-            // Pixel-Art Main Box
-            int boxWidth = 500;
-            int boxHeight = 550;
-            int boxX = (GameConstants.ScreenWidth - boxWidth) / 2;
-            int boxY = 50;
+            var layout = new DialogLayout.LevelCompleteLayout();
+            var box = layout.DialogBox;
 
-            _spriteBatch.Draw(_whitePixel, new Rectangle(boxX, boxY, boxWidth, boxHeight), new Color(10, 10, 30));
-            drawPixelBox(boxX, boxY, boxWidth, boxHeight, new Color(100, 200, 100), 4);
-            drawPixelBox(boxX + 8, boxY + 8, boxWidth - 16, boxHeight - 16, new Color(150, 255, 150), 2);
-
-            int yPos = boxY + 30;
+            // Main dialog box
+            _spriteBatch.Draw(_whitePixel, box, new Color(10, 10, 30));
+            drawPixelBox(box.X, box.Y, box.Width, box.Height, new Color(100, 200, 100), 4);
+            drawPixelBox(box.X + 8, box.Y + 8, box.Width - 16, box.Height - 16, new Color(150, 255, 150), 2);
 
             // Title
             string title = "DONE!";
             Vector2 titleSize = _font.MeasureString(title);
-            Vector2 titlePos = new Vector2((GameConstants.ScreenWidth - titleSize.X) / 2, yPos);
+            Vector2 titlePos = new Vector2((GameConstants.ScreenWidth - titleSize.X) / 2, layout.TitleY);
             _spriteBatch.DrawString(_font, title, titlePos + new Vector2(2, 2), new Color(0, 80, 0));
             _spriteBatch.DrawString(_font, title, titlePos, new Color(150, 255, 150));
-            yPos += 50;
 
             // Time Bonus Info Box
             int bonusBoxWidth = 400;
             int bonusBoxX = (GameConstants.ScreenWidth - bonusBoxWidth) / 2;
-            _spriteBatch.Draw(_whitePixel, new Rectangle(bonusBoxX, yPos, bonusBoxWidth, 60), new Color(20, 20, 40));
-            drawPixelBox(bonusBoxX, yPos, bonusBoxWidth, 60, new Color(255, 215, 0), 2);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(bonusBoxX, layout.BonusBoxY, bonusBoxWidth, 60), new Color(20, 20, 40));
+            drawPixelBox(bonusBoxX, layout.BonusBoxY, bonusBoxWidth, 60, new Color(255, 215, 0), 2);
 
-            yPos += 10;
             string calc = $"Time Bonus: $100 - {(int)scoreService.GameTimer}s = ${uiManager.LevelCompleteTimeBonus}";
             Vector2 calcSize = _font.MeasureString(calc);
-            _spriteBatch.DrawString(_font, calc, new Vector2((GameConstants.ScreenWidth - calcSize.X) / 2, yPos), new Color(255, 215, 0));
-            yPos += 25;
+            _spriteBatch.DrawString(_font, calc, new Vector2((GameConstants.ScreenWidth - calcSize.X) / 2, layout.BonusBoxY + 10), new Color(255, 215, 0));
 
             // Counting animation
             if (!uiManager.MoneyAnimationDone)
             {
                 string counting = $"Counting... ${uiManager.AnimatedMoney}";
                 Vector2 countingSize = _font.MeasureString(counting);
-                _spriteBatch.DrawString(_font, counting, new Vector2((GameConstants.ScreenWidth - countingSize.X) / 2, yPos), Color.Gray);
+                _spriteBatch.DrawString(_font, counting, new Vector2((GameConstants.ScreenWidth - countingSize.X) / 2, layout.BonusBoxY + 35), Color.Gray);
             }
-            yPos += 35;
 
             // Balance Display
             if (uiManager.MoneyAnimationDone)
             {
                 string balance = $"${shopService.BankBalance}";
                 Vector2 balanceSize = _font.MeasureString(balance);
-                Vector2 balancePos = new Vector2((GameConstants.ScreenWidth - balanceSize.X * uiManager.SlamScale) / 2 + uiManager.BalanceShake, yPos + uiManager.SlamY);
+                Vector2 balancePos = new Vector2((GameConstants.ScreenWidth - balanceSize.X * uiManager.SlamScale) / 2 + uiManager.BalanceShake, layout.BalanceY + uiManager.SlamY);
 
                 _spriteBatch.DrawString(_font, balance, balancePos + new Vector2(2, 2), new Color(100, 80, 0), 0f, Vector2.Zero, uiManager.SlamScale, SpriteEffects.None, 0f);
                 _spriteBatch.DrawString(_font, balance, balancePos, new Color(255, 215, 0), 0f, Vector2.Zero, uiManager.SlamScale, SpriteEffects.None, 0f);
@@ -248,25 +240,22 @@ namespace AlleywayMonoGame.UI
                     _spriteBatch.DrawString(_font, costText, costPos, Color.Red * trailAlpha);
                 }
             }
-            yPos += 50;
 
             // Shop Section
             if (uiManager.MoneyAnimationDone && uiManager.SlamAnimationDone)
             {
                 string shopTitle = "SHOP";
                 Vector2 shopTitleSize = _font.MeasureString(shopTitle);
-                _spriteBatch.DrawString(_font, shopTitle, new Vector2((GameConstants.ScreenWidth - shopTitleSize.X) / 2, yPos), new Color(100, 200, 255));
-                yPos += 30;
+                _spriteBatch.DrawString(_font, shopTitle, new Vector2((GameConstants.ScreenWidth - shopTitleSize.X) / 2, layout.ShopTitleY), new Color(100, 200, 255));
 
                 // Shop Box
                 int shopBoxWidth = 420;
                 int shopBoxX = (GameConstants.ScreenWidth - shopBoxWidth) / 2;
-                int shopBoxHeight = 190;
+                int shopBoxHeight = 160;
 
-                _spriteBatch.Draw(_whitePixel, new Rectangle(shopBoxX, yPos, shopBoxWidth, shopBoxHeight), new Color(15, 15, 35));
-                drawPixelBox(shopBoxX, yPos, shopBoxWidth, shopBoxHeight, new Color(100, 150, 200), 3);
+                _spriteBatch.Draw(_whitePixel, new Rectangle(shopBoxX, layout.ShopBoxY, shopBoxWidth, shopBoxHeight), new Color(15, 15, 35));
+                drawPixelBox(shopBoxX, layout.ShopBoxY, shopBoxWidth, shopBoxHeight, new Color(100, 150, 200), 3);
 
-                int shopContentY = yPos + 15;
                 int buttonWidth = 380;
                 int buttonHeight = 35;
                 int buttonX = shopBoxX + (shopBoxWidth - buttonWidth) / 2;
@@ -277,28 +266,94 @@ namespace AlleywayMonoGame.UI
                 {
                     ShopItem item = currentShopItems[i];
                     bool canAfford = shopService.CanAfford(item);
+                    Color itemColor = shopService.GetItemColor(item);
                     string itemText = $"{shopService.GetItemName(item)}";
                     string costText = $"${shopService.GetCost(item)}";
 
-                    Rectangle shopButton = new Rectangle(buttonX, shopContentY + i * (buttonHeight + buttonSpacing), buttonWidth, buttonHeight);
+                    int itemY = layout.ShopItemsStartY + i * (buttonHeight + buttonSpacing);
+                    Rectangle shopButton = new Rectangle(buttonX, itemY, buttonWidth, buttonHeight);
+                    uiManager.ShopButtons[i] = shopButton;
 
-                    Color buttonNormal = canAfford ? new Color(50, 100, 200) : new Color(60, 60, 80);
-                    Color buttonDark = canAfford ? new Color(30, 50, 100) : new Color(40, 40, 50);
+                    // Button background with item color tint
+                    Color buttonNormal = canAfford ? Color.Lerp(new Color(50, 100, 200), itemColor, 0.3f) : new Color(60, 60, 80);
+                    Color buttonDark = canAfford ? Color.Lerp(new Color(30, 50, 100), itemColor, 0.2f) : new Color(40, 40, 50);
 
-                    drawPixelButton(shopButton, uiManager.ShopButtonsHovered[i] && canAfford, itemText, buttonNormal, buttonDark);
+                    drawPixelButton(shopButton, uiManager.ShopButtonsHovered[i] && canAfford, "", buttonNormal, buttonDark);
+
+                    // Pixel art icon
+                    Vector2 iconPos = new Vector2(shopButton.X + 8, shopButton.Y + 10);
+                    ShopIconRenderer.DrawIcon(_spriteBatch, _whitePixel, item, iconPos, canAfford ? itemColor : new Color(120, 120, 120));
+
+                    // Item name
+                    Vector2 textSize = _font.MeasureString(itemText);
+                    Vector2 textPos = new Vector2(shopButton.X + 35, shopButton.Y + (shopButton.Height - textSize.Y) / 2);
+                    Color textColor = canAfford ? Color.White : new Color(120, 120, 120);
+                    _spriteBatch.DrawString(_font, itemText, textPos + new Vector2(1, 1), Color.Black * 0.5f);
+                    _spriteBatch.DrawString(_font, itemText, textPos, textColor);
 
                     // Cost in corner
                     if (canAfford)
                     {
                         Vector2 costSize = _font.MeasureString(costText);
-                        Vector2 costPos = new Vector2(shopButton.Right - costSize.X - 8, shopButton.Y + 8);
+                        Vector2 costPos = new Vector2(shopButton.Right - costSize.X - 8, shopButton.Y + (shopButton.Height - costSize.Y) / 2);
+                        _spriteBatch.DrawString(_font, costText, costPos + new Vector2(1, 1), new Color(100, 80, 0));
                         _spriteBatch.DrawString(_font, costText, costPos, new Color(255, 215, 0));
                     }
                 }
 
-                yPos += 140;
+                // Hover Tooltip (above reroll button to prevent overlap)
+                if (uiManager.HoveredShopItem >= 0 && uiManager.HoveredShopItem < 3)
+                {
+                    ShopItem hoveredItem = currentShopItems[uiManager.HoveredShopItem];
+                    string description = shopService.GetItemDescription(hoveredItem);
+                    Color itemColor = shopService.GetItemColor(hoveredItem);
+
+                    // Measure tooltip size
+                    string[] lines = description.Split('\n');
+                    float maxWidth = 0;
+                    foreach (string line in lines)
+                    {
+                        float width = _font.MeasureString(line).X;
+                        if (width > maxWidth) maxWidth = width;
+                    }
+                    
+                    int tooltipWidth = (int)maxWidth + 20;
+                    int tooltipHeight = lines.Length * 25 + 10;
+                    int tooltipX = (GameConstants.ScreenWidth - tooltipWidth) / 2;
+                    int tooltipY = layout.TooltipY - tooltipHeight;
+
+                    // Pixel art tooltip box
+                    _spriteBatch.Draw(_whitePixel, new Rectangle(tooltipX, tooltipY, tooltipWidth, tooltipHeight), new Color(10, 10, 30) * 0.95f);
+                    drawPixelBox(tooltipX, tooltipY, tooltipWidth, tooltipHeight, itemColor, 2);
+                    
+                    // Draw description
+                    int lineY = tooltipY + 8;
+                    foreach (string line in lines)
+                    {
+                        Vector2 lineSize = _font.MeasureString(line);
+                        Vector2 linePos = new Vector2(tooltipX + (tooltipWidth - lineSize.X) / 2, lineY);
+                        _spriteBatch.DrawString(_font, line, linePos + new Vector2(1, 1), Color.Black * 0.7f);
+                        _spriteBatch.DrawString(_font, line, linePos, Color.White * 0.9f);
+                        lineY += 25;
+                    }
+                }
+
+                // Reroll Button (properly spaced below shop items)
+                int rerollWidth = 180;
+                int rerollHeight = 30;
+                int rerollX = shopBoxX + (shopBoxWidth - rerollWidth) / 2;
+                uiManager.RerollButton = new Rectangle(rerollX, layout.RerollButtonY, rerollWidth, rerollHeight);
+                bool canAffordReroll = shopService.CanAffordReroll();
+                
+                Color rerollNormal = canAffordReroll ? new Color(150, 100, 200) : new Color(60, 60, 80);
+                Color rerollDark = canAffordReroll ? new Color(80, 50, 100) : new Color(40, 40, 50);
+                
+                drawPixelButton(uiManager.RerollButton, uiManager.RerollButtonHovered && canAffordReroll, "< REROLL $5 >", rerollNormal, rerollDark);
 
                 // Next Level Button
+                int nextButtonWidth = 200;
+                int nextButtonHeight = 40;
+                uiManager.NextLevelButton = DialogLayout.CalculateButton(box.X, box.Width, layout.NextButtonY, nextButtonWidth, nextButtonHeight);
                 drawPixelButton(uiManager.NextLevelButton, uiManager.NextLevelButtonHovered, "NEXT LEVEL", new Color(100, 200, 100), new Color(50, 100, 50));
             }
         }

@@ -36,6 +36,9 @@ namespace AlleywayMonoGame.Managers
         public bool NextLevelButtonHovered { get; set; }
         public Rectangle[] ShopButtons { get; } = new Rectangle[3];
         public bool[] ShopButtonsHovered { get; } = new bool[3];
+        public Rectangle RerollButton { get; set; }
+        public bool RerollButtonHovered { get; set; }
+        public int HoveredShopItem { get; set; } = -1;
         
         // UI Buttons - Game Over
         public Rectangle RetryButton { get; set; }
@@ -71,11 +74,17 @@ namespace AlleywayMonoGame.Managers
             Point mousePos = new Point(mouseState.X, mouseState.Y);
 
             // Level complete buttons
+            HoveredShopItem = -1;
             for (int i = 0; i < 3; i++)
             {
                 ShopButtonsHovered[i] = ShopButtons[i].Contains(mousePos);
+                if (ShopButtonsHovered[i])
+                {
+                    HoveredShopItem = i;
+                }
             }
             NextLevelButtonHovered = NextLevelButton.Contains(mousePos);
+            RerollButtonHovered = RerollButton.Contains(mousePos);
 
             // Game over buttons
             RetryButtonHovered = RetryButton.Contains(mousePos);
@@ -96,22 +105,14 @@ namespace AlleywayMonoGame.Managers
             const float gravity = 2000f;
             const float bounceAbsorption = 0.7f;
             const float restThreshold = 50f;
-            const float initialY = -80f;
-
-            // Initialize animation
-            if (SlamY == 0 && SlamVelocity == 0)
-            {
-                SlamY = initialY;
-                SlamVelocity = 0;
-                SlamScale = 1f;
-            }
 
             // Apply physics
             SlamVelocity += gravity * deltaTime;
+            float oldY = SlamY;
             SlamY += SlamVelocity * deltaTime;
 
             // Bounce at bottom
-            if (SlamY >= 0)
+            if (SlamY >= 0 && oldY < 0)
             {
                 SlamY = 0;
                 SlamVelocity = -SlamVelocity * bounceAbsorption;

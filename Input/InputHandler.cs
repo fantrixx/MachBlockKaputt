@@ -95,6 +95,7 @@ namespace AlleywayMonoGame.Input
                 uiManager.ShopButtonsHovered[i] = uiManager.ShopButtons[i].Contains(mousePos);
             }
             uiManager.NextLevelButtonHovered = uiManager.NextLevelButton.Contains(mousePos);
+            uiManager.RerollButtonHovered = uiManager.RerollButton.Contains(mousePos);
 
             // Check for clicks
             if (mouseState.LeftButton == ButtonState.Pressed && !purchaseAnimationActive && moneyAnimationDone)
@@ -112,6 +113,11 @@ namespace AlleywayMonoGame.Input
                 if (uiManager.NextLevelButtonHovered)
                 {
                     result.NextLevelClicked = true;
+                }
+
+                if (uiManager.RerollButtonHovered)
+                {
+                    result.RerollClicked = true;
                 }
             }
 
@@ -159,6 +165,7 @@ namespace AlleywayMonoGame.Input
         public bool ShopButtonClicked;
         public int ShopItemClicked;
         public bool NextLevelClicked;
+        public bool RerollClicked;
     }
 
     /// <summary>

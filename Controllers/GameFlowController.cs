@@ -81,6 +81,7 @@ namespace AlleywayMonoGame.Controllers
 
             _gameState.NextLevel();
             _uiManager.LevelComplete = false;
+            _uiManager.ResetLevelComplete(); // Reset animation state for next level
             _scoreService.ResetTimer();
 
             // Clear active elements
@@ -111,20 +112,20 @@ namespace AlleywayMonoGame.Controllers
 
             // Reset balls
             balls.Clear();
-            balls.Add(CreateInitialBall(result.NewPaddle));
+            balls.Add(CreateInitialBall(result.NewPaddle, _gameState.CurrentLevel));
 
             // Spawn extra balls
             for (int i = 0; i < extraBallsPurchased; i++)
             {
-                balls.Add(CreateExtraBall(result.NewPaddle, i));
+                balls.Add(CreateExtraBall(result.NewPaddle, i, _gameState.CurrentLevel));
             }
             extraBallsPurchased = 0;
 
-            // Activate shoot mode if purchased
-            if (startWithShootMode)
+            // Don't activate shoot mode yet - will be activated when ball is launched
+            if (_shopService.StartWithShootMode)
             {
-                _powerUpManager.ActivateShootMode(startWithShootMode: true);
-                startWithShootMode = false;
+                startWithShootMode = true;
+                _shopService.ResetShootMode();
             }
 
             _scoreService.StartTimer();
@@ -159,7 +160,7 @@ namespace AlleywayMonoGame.Controllers
             {
                 NewBricks = levelData.Bricks,
                 NewPaddle = paddle,
-                InitialBall = CreateInitialBall(paddle),
+                InitialBall = CreateInitialBall(paddle, 1),
                 NewShopService = new ShopService()
             };
         }
@@ -175,7 +176,7 @@ namespace AlleywayMonoGame.Controllers
             {
                 // Reset ball
                 balls.Clear();
-                balls.Add(CreateInitialBall(paddle));
+                balls.Add(CreateInitialBall(paddle, _gameState.CurrentLevel));
             }
             else
             {
@@ -233,8 +234,12 @@ namespace AlleywayMonoGame.Controllers
             return result;
         }
 
-        private Ball CreateInitialBall(Paddle paddle)
+        private Ball CreateInitialBall(Paddle paddle, int level)
         {
+            // Gentle speed increase: Level 1 = 150, Level 5 = 165, Level 10 = 185
+            // Formula: 150 + (level - 1) * 4 = +4 pixels/second per level
+            float baseSpeed = 150f + (level - 1) * 4f;
+            
             return new Ball(
                 new Rectangle(
                     paddle.Center.X - GameConstants.BallSize / 2,
@@ -242,16 +247,18 @@ namespace AlleywayMonoGame.Controllers
                     GameConstants.BallSize,
                     GameConstants.BallSize
                 ),
-                Vector2.Zero,
+                new Vector2(baseSpeed, -baseSpeed),
                 false
             );
         }
 
-        private Ball CreateExtraBall(Paddle paddle, int index)
+        private Ball CreateExtraBall(Paddle paddle, int index, int level)
         {
             float angle = -90f + (index + 1) * 30f;
             float radians = angle * (float)Math.PI / 180f;
-            float speed = 200f;
+            
+            // Same speed progression as initial ball
+            float baseSpeed = 150f + (level - 1) * 4f;
 
             return new Ball(
                 new Rectangle(
@@ -260,7 +267,7 @@ namespace AlleywayMonoGame.Controllers
                     GameConstants.BallSize,
                     GameConstants.BallSize
                 ),
-                new Vector2((float)Math.Cos(radians) * speed, (float)Math.Sin(radians) * speed),
+                new Vector2((float)Math.Cos(radians) * baseSpeed, (float)Math.Sin(radians) * baseSpeed),
                 true
             );
         }

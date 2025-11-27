@@ -281,23 +281,30 @@ namespace AlleywayMonoGame
                     _uiManager.MoneyAnimationDone = true;
                     _shopService.AddMoney(_uiManager.LevelCompleteTimeBonus);
                     
-                    _uiManager.SlamY = -100f;
-                    _uiManager.SlamVelocity = 0f;
-                    _uiManager.SlamScale = 1f;
-                    _uiManager.SlamAnimationDone = false;
+                    // Don't start slam animation yet - wait a frame
                 }
             }
 
-            // Delegate animations to UIManager
+            // Start slam animation after money counting is complete
             if (_uiManager.MoneyAnimationDone && !_uiManager.SlamAnimationDone)
             {
+                // Initialize slam on first frame after money animation
+                if (_uiManager.SlamY == 0 && _uiManager.SlamVelocity == 0 && _uiManager.SlamScale == 1f)
+                {
+                    _uiManager.SlamY = -100f;
+                    _uiManager.SlamVelocity = 0f;
+                }
+                
                 _uiManager.UpdateSlamAnimation(dt);
                 
-                // Visual effects for slam animation
-                if (_uiManager.SlamY == 0 && _uiManager.SlamVelocity != 0 && Math.Abs(_uiManager.SlamVelocity) > 50f)
+                // Visual effects for slam animation - check if just landed
+                if (_uiManager.SlamY == 0 && Math.Abs(_uiManager.SlamVelocity) > 50f)
                 {
-                    Vector2 impactPos = new Vector2(GameConstants.ScreenWidth / 2, 40 + 3 * 50 + 30);
-                    _particleSystem.SpawnDustCloud(impactPos, 20);
+                    // Calculate position based on dialog layout
+                    var layout = new DialogLayout.LevelCompleteLayout();
+                    Vector2 impactPos = new Vector2(GameConstants.ScreenWidth / 2, layout.BalanceY + 15);
+                    _particleSystem.SpawnDustCloud(impactPos, 25);
+                    _audioService.PlayPaddleHit(); // Impact sound
                 }
             }
 
@@ -336,6 +343,15 @@ namespace AlleywayMonoGame
                         purchaseResult.AnimationY,
                         purchaseResult.Cost
                     );
+                }
+            }
+            
+            if (shopInput.RerollClicked)
+            {
+                if (_shopService.Reroll())
+                {
+                    _currentShopItems = _shopService.GetRandomShopItems(3);
+                    _audioService.PlayPowerUp(); // Reroll sound effect
                 }
             }
             
@@ -470,6 +486,7 @@ namespace AlleywayMonoGame
         private void UpdatePaddle(float dt)
         {
             _inputHandler.HandlePaddleInput(_paddle, dt);
+            _paddle.UpdateAnimation(dt);
         }
 
         private void UpdateBalls(float dt)
@@ -494,6 +511,13 @@ namespace AlleywayMonoGame
                     {
                         ball.IsLaunched = true;
                         _scoreService.StartTimer();
+                        
+                        // Activate shoot mode if purchased (only on first ball launch)
+                        if (_startWithShootMode)
+                        {
+                            _powerUpManager.ActivateShootMode(startWithShootMode: true);
+                            _startWithShootMode = false;
+                        }
                     }
                 }
                 else
@@ -518,10 +542,16 @@ namespace AlleywayMonoGame
                 GameConstants.ScreenHeight
             );
 
-            // Handle paddle hits
-            if (collisionResult.PaddleHit)
+            // Handle wall bounces
+            if (collisionResult.WallBounce)
             {
-                _audioService.PlayPaddleHit();
+                _audioService.PlayWallBounce();
+            }
+
+            // Handle paddle bounces
+            if (collisionResult.PaddleBounce)
+            {
+                _audioService.PlayPaddleBounce();
             }
 
             // Handle brick hits using CollisionHandler
@@ -550,8 +580,8 @@ namespace AlleywayMonoGame
             _bricks.RemoveAt(index);
             _scoreService.AddBrickScore();
 
-            // Special brick: randomly activate one of three power-ups (only if no power-up active)
-            if (result.WasSpecialBrick && !_powerUpManager.CanShoot && !_powerUpManager.BigPaddleActive)
+            // Special brick: randomly activate one of three power-ups (blocked during shoot mode)
+            if (result.WasSpecialBrick && !_powerUpManager.CanShoot)
             {
                 var random = new Random();
                 int powerUpType = random.Next(3); // 0, 1, or 2
@@ -568,7 +598,7 @@ namespace AlleywayMonoGame
                         _floatingTextSystem.AddText("+BALL", brick.Center, Color.White, 3f);
                         break;
                         
-                    case 2: // Big paddle
+                    case 2: // Big paddle (refresh timer if already active)
                         _powerUpManager.ActivateBigPaddle();
                         _floatingTextSystem.AddText("BIG PADDLE!", brick.Center, Color.Cyan, 3f);
                         break;
@@ -989,7 +1019,7 @@ namespace AlleywayMonoGame
                 int row = (brick.Bounds.Y - 50) / (brickHeight + 2);
                 Color brickColor = Brick.GetColorForRow(row);
 
-                bool isSpecial = brick.Type == BrickType.Special && !_powerUpManager.CanShoot && !_powerUpManager.BigPaddleActive;
+                bool isSpecial = brick.Type == BrickType.Special && !_powerUpManager.CanShoot;
 
                 if (isSpecial)
                 {

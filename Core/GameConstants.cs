@@ -20,7 +20,7 @@ namespace AlleywayMonoGame.Core
         public const int PaddleSpeed = 400;
 
         // Ball constants
-        public const int BallSize = 10;
+        public const int BallSize = 14;
         public const float BallSpeedIncreaseMultiplier = 1.05f;
         public const float MaxBallSpeed = 800f;
 
