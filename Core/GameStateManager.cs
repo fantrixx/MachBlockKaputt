@@ -12,6 +12,7 @@ namespace AlleywayMonoGame.Core
         public bool IsGameOver => CurrentState == GameState.GameOver;
         public bool IsLevelComplete => CurrentState == GameState.LevelComplete;
         public bool IsLevelCleared => CurrentState == GameState.LevelCleared;
+        public bool IsVictory => CurrentState == GameState.Victory;
 
         public void SetPlaying()
         {
@@ -33,6 +34,11 @@ namespace AlleywayMonoGame.Core
             CurrentState = GameState.LevelCleared;
         }
 
+        public void SetVictory()
+        {
+            CurrentState = GameState.Victory;
+        }
+
         public void NextLevel()
         {
             CurrentLevel++;
@@ -51,6 +57,7 @@ namespace AlleywayMonoGame.Core
         Playing,
         LevelCleared,
         LevelComplete,
-        GameOver
+        GameOver,
+        Victory
     }
 }

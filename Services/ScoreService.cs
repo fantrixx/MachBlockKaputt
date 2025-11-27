@@ -56,6 +56,12 @@ namespace AlleywayMonoGame.Services
             TimerRunning = false;
         }
 
+        public void ResetTimer()
+        {
+            GameTimer = 0f;
+            TimerRunning = false;
+        }
+
         public bool IsGameOver => Lives <= 0;
         
         public string GetFormattedTime()

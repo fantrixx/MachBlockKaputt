@@ -9,6 +9,8 @@ namespace AlleywayMonoGame.Services
         public float PaddleSpeedMultiplier { get; private set; } = 1.0f;
         public int ExtraBallsPurchased { get; private set; }
         public bool StartWithShootMode { get; set; }
+        public int TotalEarned { get; private set; }
+        public int TotalSpent { get; private set; }
 
         private const int SpeedUpgradeCost = 25;
         private const int ExtraBallCost = 5;
@@ -18,6 +20,7 @@ namespace AlleywayMonoGame.Services
         public void AddMoney(int amount)
         {
             BankBalance += amount;
+            TotalEarned += amount;
         }
 
         public bool CanAfford(ShopItem item)
@@ -40,16 +43,19 @@ namespace AlleywayMonoGame.Services
             {
                 case ShopItem.SpeedUpgrade:
                     BankBalance -= SpeedUpgradeCost;
+                    TotalSpent += SpeedUpgradeCost;
                     PaddleSpeedMultiplier += SpeedUpgradeIncrement;
                     return true;
                     
                 case ShopItem.ExtraBall:
                     BankBalance -= ExtraBallCost;
+                    TotalSpent += ExtraBallCost;
                     ExtraBallsPurchased++;
                     return true;
                     
                 case ShopItem.ShootMode:
                     BankBalance -= ShootModeCost;
+                    TotalSpent += ShootModeCost;
                     StartWithShootMode = true;
                     return true;
                     
