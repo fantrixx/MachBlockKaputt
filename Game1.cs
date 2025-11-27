@@ -137,6 +137,8 @@ namespace AlleywayMonoGame
         private Random rand = new Random();
         private SoundEffect? explosionSound;
         private SoundEffect? paddleSound;
+        private SoundEffect? rocketSound;
+        private SoundEffect? projectileExplosionSound;
 
         public Game1()
         {
@@ -314,6 +316,10 @@ namespace AlleywayMonoGame
                 explosionSound = CreateExplosionSoundEffect(440, 0.12f, 0.6f);
                 // create a different short click/tap sound for paddle hits
                 paddleSound = CreateExplosionSoundEffect(1000, 0.06f, 0.85f);
+                // create rocket launch sound (low frequency with quick attack)
+                rocketSound = CreateRocketSoundEffect();
+                // create subtle projectile explosion sound
+                projectileExplosionSound = CreateProjectileExplosionSound();
             }
             catch
             {
@@ -605,6 +611,135 @@ namespace AlleywayMonoGame
             ms.Seek(0, SeekOrigin.Begin);
 
             // SoundEffect.FromStream expects a WAV stream
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreateRocketSoundEffect()
+        {
+            // Create a rocket launch sound: low frequency sweep with noise
+            const int sampleRate = 44100;
+            float durationSeconds = 0.3f; // Slightly longer for rocket effect
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            short bitsPerSample = 16;
+            short channels = 1;
+            int byteRate = sampleRate * channels * bitsPerSample / 8;
+            short blockAlign = (short)(channels * bitsPerSample / 8);
+
+            // RIFF header
+            bw.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+            bw.Write((int)(36 + samples * channels * bitsPerSample / 8));
+            bw.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
+            // fmt chunk
+            bw.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
+            bw.Write((int)16);
+            bw.Write((short)1); // PCM
+            bw.Write(channels);
+            bw.Write(sampleRate);
+            bw.Write(byteRate);
+            bw.Write(blockAlign);
+            bw.Write(bitsPerSample);
+            // data chunk header
+            bw.Write(System.Text.Encoding.ASCII.GetBytes("data"));
+            bw.Write((int)(samples * channels * bitsPerSample / 8));
+
+            double amplitude = 32760 * 0.7f; // Volume
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                // Frequency sweep from low to high (rocket launch effect)
+                double progress = t / durationSeconds;
+                double frequency = 80 + progress * 200; // Sweep from 80Hz to 280Hz
+                
+                // Envelope: quick attack, sustained, quick decay
+                double env;
+                if (progress < 0.1) // Attack
+                    env = progress / 0.1;
+                else if (progress < 0.7) // Sustain
+                    env = 1.0;
+                else // Decay
+                    env = 1.0 - ((progress - 0.7) / 0.3);
+                
+                // Mix sine wave with noise for rocket exhaust effect
+                double sineWave = Math.Sin(2.0 * Math.PI * frequency * t);
+                double noise = (rand.NextDouble() - 0.5) * 0.3; // 30% noise
+                double mixed = (sineWave * 0.7 + noise * 0.3) * env;
+                
+                short sample = (short)(amplitude * mixed);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreateProjectileExplosionSound()
+        {
+            // Create a subtle, non-intrusive explosion sound (softer than regular explosion)
+            const int sampleRate = 44100;
+            float durationSeconds = 0.08f; // Very short
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            short bitsPerSample = 16;
+            short channels = 1;
+            int byteRate = sampleRate * channels * bitsPerSample / 8;
+            short blockAlign = (short)(channels * bitsPerSample / 8);
+
+            // RIFF header
+            bw.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+            bw.Write((int)(36 + samples * channels * bitsPerSample / 8));
+            bw.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
+            // fmt chunk
+            bw.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
+            bw.Write((int)16);
+            bw.Write((short)1); // PCM
+            bw.Write(channels);
+            bw.Write(sampleRate);
+            bw.Write(byteRate);
+            bw.Write(blockAlign);
+            bw.Write(bitsPerSample);
+            // data chunk header
+            bw.Write(System.Text.Encoding.ASCII.GetBytes("data"));
+            bw.Write((int)(samples * channels * bitsPerSample / 8));
+
+            double amplitude = 32760 * 0.5f; // Increased from 0.25 to 0.5 (50% volume)
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Fast exponential decay for "pop" effect
+                double env = Math.Exp(-8.0 * progress);
+                
+                // Mix of frequencies for impact sound
+                double freq1 = 300; // Mid frequency
+                double freq2 = 180; // Lower frequency
+                double wave = Math.Sin(2.0 * Math.PI * freq1 * t) * 0.6 + 
+                             Math.Sin(2.0 * Math.PI * freq2 * t) * 0.4;
+                
+                // Add subtle noise for texture
+                double noise = (rand.NextDouble() - 0.5) * 0.15;
+                double mixed = (wave * 0.85 + noise * 0.15) * env;
+                
+                short sample = (short)(amplitude * mixed);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+
             return SoundEffect.FromStream(ms);
         }
 
@@ -965,6 +1100,9 @@ namespace AlleywayMonoGame
                 // Create projectile from paddle center
                 Rectangle projectile = new Rectangle(paddle.X + paddle.Width / 2 - 3, paddle.Y - 15, 6, 15);
                 projectiles.Add(projectile);
+                
+                // Play rocket launch sound
+                try { rocketSound?.Play(); } catch { }
             }
             previousKeyState = kb;
             
@@ -1308,7 +1446,7 @@ namespace AlleywayMonoGame
                             // Power-ups are disabled when canShoot is true
                             
                             SpawnExplosion(center, 24, brickColor);
-                            try { explosionSound?.Play(); } catch { }
+                            // Don't play regular explosion sound for projectile hits
                             score += 100;
                             
                             projectileHit = true;
@@ -1318,6 +1456,8 @@ namespace AlleywayMonoGame
                     
                     if (projectileHit)
                     {
+                        // Play subtle projectile explosion sound
+                        try { projectileExplosionSound?.Play(); } catch { }
                         projectiles.RemoveAt(p);
                     }
                 }

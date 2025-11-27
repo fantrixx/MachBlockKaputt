@@ -186,19 +186,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Labor\\.nuget\\packages\\": {}
+    "C:\\Users\\Timur\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Labor\\Documents\\coding\\AlleywayMonoGame\\AlleywayMonoGame.csproj",
+      "projectUniqueName": "D:\\c#\\MachBlockKaputt\\AlleywayMonoGame.csproj",
       "projectName": "AlleywayMonoGame",
-      "projectPath": "C:\\Users\\Labor\\Documents\\coding\\AlleywayMonoGame\\AlleywayMonoGame.csproj",
-      "packagesPath": "C:\\Users\\Labor\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Labor\\Documents\\coding\\AlleywayMonoGame\\obj\\",
+      "projectPath": "D:\\c#\\MachBlockKaputt\\AlleywayMonoGame.csproj",
+      "packagesPath": "C:\\Users\\Timur\\.nuget\\packages\\",
+      "outputPath": "D:\\c#\\MachBlockKaputt\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\Labor\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\Timur\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net10.0"
