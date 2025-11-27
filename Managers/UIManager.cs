@@ -85,5 +85,106 @@ namespace AlleywayMonoGame.Managers
             VictoryRetryButtonHovered = VictoryRetryButton.Contains(mousePos);
             VictoryQuitButtonHovered = VictoryQuitButton.Contains(mousePos);
         }
+
+        /// <summary>
+        /// Updates the money slam animation when money is earned
+        /// </summary>
+        public void UpdateSlamAnimation(float deltaTime)
+        {
+            if (SlamAnimationDone) return;
+
+            const float gravity = 2000f;
+            const float bounceAbsorption = 0.7f;
+            const float restThreshold = 50f;
+            const float initialY = -80f;
+
+            // Initialize animation
+            if (SlamY == 0 && SlamVelocity == 0)
+            {
+                SlamY = initialY;
+                SlamVelocity = 0;
+                SlamScale = 1f;
+            }
+
+            // Apply physics
+            SlamVelocity += gravity * deltaTime;
+            SlamY += SlamVelocity * deltaTime;
+
+            // Bounce at bottom
+            if (SlamY >= 0)
+            {
+                SlamY = 0;
+                SlamVelocity = -SlamVelocity * bounceAbsorption;
+
+                // Impact scale effect
+                SlamScale = 1.3f;
+
+                // Check if animation should end
+                if (System.Math.Abs(SlamVelocity) < restThreshold)
+                {
+                    SlamAnimationDone = true;
+                    SlamVelocity = 0;
+                    SlamScale = 1f;
+                }
+            }
+
+            // Scale animation (squash & stretch)
+            if (SlamScale > 1f)
+            {
+                SlamScale -= deltaTime * 3f;
+                if (SlamScale < 1f) SlamScale = 1f;
+            }
+
+            // Glow pulse
+            GlowPulse += deltaTime * 4f;
+        }
+
+        /// <summary>
+        /// Updates the purchase animation when an item is bought
+        /// </summary>
+        public void UpdatePurchaseAnimation(float deltaTime)
+        {
+            if (!PurchaseAnimationActive) return;
+
+            const float duration = 0.8f;
+            PurchaseAnimationTimer += deltaTime;
+
+            if (PurchaseAnimationTimer < duration)
+            {
+                float progress = PurchaseAnimationTimer / duration;
+                float targetX = 40 + 350;
+                float targetY = 50;
+
+                // Smooth movement with easing
+                float t = 1f - (float)System.Math.Pow(1f - progress, 3f);
+                PurchaseCostX += (targetX - PurchaseCostX) * t * deltaTime * 5f;
+                PurchaseCostY += (targetY - PurchaseCostY) * t * deltaTime * 5f;
+
+                // Shake balance text on impact
+                if (progress > 0.85f)
+                {
+                    BalanceShake = (float)System.Math.Sin(progress * 30f) * 5f * (1f - progress);
+                }
+            }
+            else
+            {
+                PurchaseAnimationActive = false;
+                PurchaseAnimationTimer = 0f;
+                BalanceShake = 0f;
+            }
+        }
+
+        /// <summary>
+        /// Starts a purchase animation
+        /// </summary>
+        public void StartPurchaseAnimation(float startX, float startY, int cost)
+        {
+            PurchaseAnimationActive = true;
+            PurchaseCostX = startX;
+            PurchaseCostY = startY;
+            PurchaseCostAmount = cost;
+            PurchaseAnimationTimer = 0f;
+            BalanceShake = 0f;
+        }
     }
 }

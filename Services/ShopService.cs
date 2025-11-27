@@ -18,7 +18,7 @@ namespace AlleywayMonoGame.Services
         private const int SpeedUpgradeCost = 25;
         private const int ExtraBallCost = 5;
         private const int ShootModeCost = 15;
-        private const int PaddleSizeCost = 30;
+        private const int PaddleSizeCost = 40;
         private const float SpeedUpgradeIncrement = 0.03f;
         private const float PaddleSizeIncrement = 0.04f;
 

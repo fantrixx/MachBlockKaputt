@@ -11,6 +11,8 @@ using AlleywayMonoGame.Systems;
 using AlleywayMonoGame.Core;
 using AlleywayMonoGame.Managers;
 using AlleywayMonoGame.UI;
+using AlleywayMonoGame.Input;
+using AlleywayMonoGame.Controllers;
 
 namespace AlleywayMonoGame
 {
@@ -42,6 +44,11 @@ namespace AlleywayMonoGame
         private UIManager _uiManager = null!;
         private PowerUpManager _powerUpManager = null!;
         
+        // Controllers
+        private InputHandler _inputHandler = null!;
+        private GameFlowController _gameFlowController = null!;
+        private CollisionHandler _collisionHandler = null!;
+        
         // UI Rendering
         private DialogRenderer? _dialogRenderer;
 
@@ -57,9 +64,6 @@ namespace AlleywayMonoGame
         private Texture2D? _ballTexture;
         private Texture2D? _paddleTexture;
         private Texture2D? _heartTexture;
-
-        // Input
-        private KeyboardState _previousKeyState;
 
         // Shop upgrades
         private int _extraBallsPurchased;
@@ -96,6 +100,9 @@ namespace AlleywayMonoGame
             // Initialize managers
             _backgroundManager = new BackgroundManager();
             _uiManager = new UIManager();
+            
+            // Initialize input handler
+            _inputHandler = new InputHandler();
 
             // Initialize paddle
             _paddle = new Paddle(
@@ -109,9 +116,6 @@ namespace AlleywayMonoGame
 
             // Initialize first ball
             ResetBall();
-
-            // Initialize input
-            _previousKeyState = Keyboard.GetState();
 
             // Initialize background
             _backgroundManager.Initialize();
@@ -131,6 +135,26 @@ namespace AlleywayMonoGame
             
             // Initialize PowerUpManager after AudioService is ready
             _powerUpManager = new PowerUpManager(_paddle, _projectiles, _audioService);
+            
+            // Initialize controllers after all services are ready
+            _gameFlowController = new GameFlowController(
+                _scoreService,
+                _shopService,
+                _gameState,
+                _levelSystem,
+                _uiManager,
+                _powerUpManager,
+                _particleSystem,
+                _floatingTextSystem,
+                _audioService
+            );
+            
+            _collisionHandler = new CollisionHandler(
+                _scoreService,
+                _particleSystem,
+                _floatingTextSystem,
+                _audioService
+            );
 
             // Create base textures
             _whitePixel = new Texture2D(GraphicsDevice, 1, 1);
@@ -209,43 +233,29 @@ namespace AlleywayMonoGame
         {
             _uiManager.VictoryGlowTimer += dt * 2f;
 
-            var mouseState = Mouse.GetState();
-            Point mousePos = new Point(mouseState.X, mouseState.Y);
-
-            _uiManager.VictoryRetryButtonHovered = _uiManager.VictoryRetryButton.Contains(mousePos);
-            _uiManager.VictoryQuitButtonHovered = _uiManager.VictoryQuitButton.Contains(mousePos);
-
-            if (mouseState.LeftButton == ButtonState.Pressed)
+            var dialogInput = _inputHandler.HandleDialogInput(_uiManager);
+            if (dialogInput.RetryClicked)
             {
-                if (_uiManager.VictoryRetryButtonHovered)
-                {
-                    RestartGame();
-                }
-                else if (_uiManager.VictoryQuitButtonHovered)
-                {
-                    Exit();
-                }
+                var restartResult = _gameFlowController.RestartGame();
+                ApplyRestartResult(restartResult);
+            }
+            else if (dialogInput.QuitClicked)
+            {
+                Exit();
             }
         }
 
         private void UpdateGameOver(float dt)
         {
-            var mouseState = Mouse.GetState();
-            Point mousePos = new Point(mouseState.X, mouseState.Y);
-
-            _uiManager.RetryButtonHovered = _uiManager.RetryButton.Contains(mousePos);
-            _uiManager.QuitButtonHovered = _uiManager.QuitButton.Contains(mousePos);
-
-            if (mouseState.LeftButton == ButtonState.Pressed)
+            var dialogInput = _inputHandler.HandleDialogInput(_uiManager);
+            if (dialogInput.RetryClicked)
             {
-                if (_uiManager.RetryButtonHovered)
-                {
-                    RestartGame();
-                }
-                else if (_uiManager.QuitButtonHovered)
-                {
-                    Exit();
-                }
+                var restartResult = _gameFlowController.RestartGame();
+                ApplyRestartResult(restartResult);
+            }
+            else if (dialogInput.QuitClicked)
+            {
+                Exit();
             }
         }
 
@@ -278,10 +288,17 @@ namespace AlleywayMonoGame
                 }
             }
 
-            // Slam animation
+            // Delegate animations to UIManager
             if (_uiManager.MoneyAnimationDone && !_uiManager.SlamAnimationDone)
             {
-                UpdateSlamAnimation(dt);
+                _uiManager.UpdateSlamAnimation(dt);
+                
+                // Visual effects for slam animation
+                if (_uiManager.SlamY == 0 && _uiManager.SlamVelocity != 0 && Math.Abs(_uiManager.SlamVelocity) > 50f)
+                {
+                    Vector2 impactPos = new Vector2(GameConstants.ScreenWidth / 2, 40 + 3 * 50 + 30);
+                    _particleSystem.SpawnDustCloud(impactPos, 20);
+                }
             }
 
             _uiManager.GlowPulse += dt * 3f;
@@ -289,133 +306,62 @@ namespace AlleywayMonoGame
             // Purchase animation
             if (_uiManager.PurchaseAnimationActive)
             {
-                UpdatePurchaseAnimation(dt);
-            }
-
-            // Shop interaction
-            UpdateShopInteraction(dt);
-        }
-
-        private void UpdateSlamAnimation(float dt)
-        {
-            float gravity = 1200f * dt;
-            _uiManager.SlamVelocity += gravity;
-            _uiManager.SlamY += _uiManager.SlamVelocity;
-
-            float targetY = 0f;
-            if (_uiManager.SlamY >= targetY)
-            {
-                _uiManager.SlamY = targetY;
-                float prevVelocity = _uiManager.SlamVelocity;
-                _uiManager.SlamVelocity *= -0.4f;
-                _uiManager.SlamScale = 1.2f;
-
-                if (prevVelocity > 0f && Math.Abs(prevVelocity) > 50f)
-                {
-                    Vector2 impactPos = new Vector2(GameConstants.ScreenWidth / 2, 40 + 3 * 50 + 30);
-                    _particleSystem.SpawnDustCloud(impactPos, 20);
-                }
-
-                if (Math.Abs(_uiManager.SlamVelocity) < 30f)
-                {
-                    _uiManager.SlamVelocity = 0f;
-                    _uiManager.SlamAnimationDone = true;
-                }
-            }
-
-            if (_uiManager.SlamScale > 1f)
-            {
-                _uiManager.SlamScale -= dt * 1.5f;
-                if (_uiManager.SlamScale < 1f) _uiManager.SlamScale = 1f;
-            }
-        }
-
-        private void UpdatePurchaseAnimation(float dt)
-        {
-            _uiManager.PurchaseAnimationTimer += dt;
-
-            if (_uiManager.PurchaseAnimationTimer < 0.5f)
-            {
-                float progress = _uiManager.PurchaseAnimationTimer / 0.5f;
-                float eased = 1f - (float)Math.Pow(1f - progress, 3);
-                _uiManager.PurchaseCostX += (GameConstants.ScreenWidth / 2 - _uiManager.PurchaseCostX) * eased * dt * 8f;
-            }
-            else if (_uiManager.PurchaseAnimationTimer < 0.8f)
-            {
-                if (_uiManager.PurchaseAnimationTimer >= 0.5f && _uiManager.PurchaseAnimationTimer - dt < 0.5f)
+                _uiManager.UpdatePurchaseAnimation(dt);
+                
+                // Visual effects for purchase animation  
+                float prevTimer = _uiManager.PurchaseAnimationTimer - dt;
+                if (_uiManager.PurchaseAnimationTimer >= 0.5f && prevTimer < 0.5f)
                 {
                     Vector2 impactPos = new Vector2(GameConstants.ScreenWidth / 2, 40 + 3 * 50 + 10);
                     _particleSystem.SpawnExplosion(impactPos, 20, Color.Gold);
                 }
-
-                float shakeIntensity = 10f * (1f - (_uiManager.PurchaseAnimationTimer - 0.5f) / 0.3f);
-                _uiManager.BalanceShake = ((float)new Random().NextDouble() - 0.5f) * shakeIntensity * 2f;
             }
-            else
-            {
-                _uiManager.PurchaseAnimationActive = false;
-                _uiManager.BalanceShake = 0f;
-            }
-        }
 
-        private void UpdateShopInteraction(float dt)
-        {
-            var mouseState = Mouse.GetState();
-            Point mousePos = new Point(mouseState.X, mouseState.Y);
-
-            for (int i = 0; i < 3; i++)
+            // Shop interaction using InputHandler
+            var shopInput = _inputHandler.HandleShopInput(_uiManager, _uiManager.PurchaseAnimationActive, _uiManager.MoneyAnimationDone);
+            if (shopInput.ShopButtonClicked)
             {
-                _uiManager.ShopButtonsHovered[i] = _uiManager.ShopButtons[i].Contains(mousePos);
-            }
-            _uiManager.NextLevelButtonHovered = _uiManager.NextLevelButton.Contains(mousePos);
-
-            if (mouseState.LeftButton == ButtonState.Pressed && !_uiManager.PurchaseAnimationActive && _uiManager.MoneyAnimationDone)
-            {
-                // Check each shop button
-                for (int i = 0; i < 3; i++)
-                {
-                    if (_uiManager.ShopButtonsHovered[i] && _shopService.CanAfford(_currentShopItems[i]))
-                    {
-                        StartPurchaseAnimation(_currentShopItems[i], i);
-                        _shopService.Purchase(_currentShopItems[i]);
-                        
-                        // Apply the purchase
-                        switch (_currentShopItems[i])
-                        {
-                            case ShopItem.SpeedUpgrade:
-                                _paddle.SpeedMultiplier = _shopService.PaddleSpeedMultiplier;
-                                break;
-                            case ShopItem.ExtraBall:
-                                _extraBallsPurchased++;
-                                break;
-                            case ShopItem.ShootMode:
-                                _startWithShootMode = true;
-                                break;
-                            case ShopItem.PaddleSize:
-                                // Apply permanent size increase
-                                _paddle.ApplyPermanentSizeIncrease(_shopService.PaddleSizeMultiplier);
-                                break;
-                        }
-                        
-                        _audioService.PlayCashRegister();
-                        break;
-                    }
-                }
+                var purchaseResult = _gameFlowController.ProcessPurchase(
+                    _currentShopItems[shopInput.ShopItemClicked],
+                    _paddle,
+                    ref _extraBallsPurchased,
+                    ref _startWithShootMode,
+                    shopInput.ShopItemClicked
+                );
                 
-                if (_uiManager.NextLevelButtonHovered)
+                if (purchaseResult.Success)
                 {
-                    AdvanceToNextLevel();
+                    _uiManager.StartPurchaseAnimation(
+                        purchaseResult.AnimationX,
+                        purchaseResult.AnimationY,
+                        purchaseResult.Cost
+                    );
                 }
             }
-        }
-
-        private void StartPurchaseAnimation(ShopItem item, int buttonIndex)
-        {
-            _uiManager.PurchaseAnimationActive = true;
-            _uiManager.PurchaseCostAmount = _shopService.GetCost(item);
-            _uiManager.PurchaseCostX = _uiManager.ShopButtons[buttonIndex].X - 150;
-            _uiManager.PurchaseCostY = 40 + 3 * 50;
-            _uiManager.PurchaseAnimationTimer = 0f;
+            
+            if (shopInput.NextLevelClicked)
+            {
+                var levelResult = _gameFlowController.AdvanceToNextLevel(
+                    _balls,
+                    _projectiles,
+                    ref _extraBallsPurchased,
+                    ref _startWithShootMode,
+                    SetupVictoryUI
+                );
+                
+                if (levelResult.IsVictory)
+                {
+                    _audioService.PlayVictory();
+                }
+                else
+                {
+                    _bricks = levelResult.NewBricks;
+                    _paddle = levelResult.NewPaddle;
+                    
+                    // Recreate PowerUpManager with new paddle reference
+                    _powerUpManager = new PowerUpManager(_paddle, _projectiles, _audioService);
+                }
+            }
         }
 
         #endregion
@@ -424,16 +370,13 @@ namespace AlleywayMonoGame
 
         private void UpdateGameplay(float dt)
         {
-            var kb = Keyboard.GetState();
-
-            // Cheat: P to win level
-            if (kb.IsKeyDown(Keys.P) && _previousKeyState.IsKeyUp(Keys.P))
+            // Cheat codes using InputHandler
+            var (winLevel, winAll) = _inputHandler.CheckCheatCodes();
+            if (winLevel)
             {
                 _bricks.Clear();
             }
-
-            // Cheat: O to win all 10 levels
-            if (kb.IsKeyDown(Keys.O) && _previousKeyState.IsKeyUp(Keys.O))
+            if (winAll)
             {
                 _gameState.CurrentLevel = 10;
                 _bricks.Clear();
@@ -449,7 +392,7 @@ namespace AlleywayMonoGame
             _powerUpManager.FlickerTimer += dt * 10f;
 
             // Update shoot power-up
-            UpdateShootPowerUp(dt, kb);
+            UpdateShootPowerUp(dt);
 
             // Update big paddle power-up
             UpdateBigPaddle(dt);
@@ -458,10 +401,10 @@ namespace AlleywayMonoGame
             UpdateProjectiles(dt);
 
             // Update paddle
-            UpdatePaddle(dt, kb);
+            UpdatePaddle(dt);
 
             // Update balls
-            UpdateBalls(dt, kb);
+            UpdateBalls(dt);
 
             // Check projectile collisions
             CheckProjectileCollisions();
@@ -475,18 +418,19 @@ namespace AlleywayMonoGame
             // Update particle systems
             _particleSystem.Update(dt);
             _floatingTextSystem.Update(dt);
-
-            _previousKeyState = kb;
+            
+            // Update input states at the end of frame
+            _inputHandler.UpdatePreviousStates();
         }
 
-        private void UpdateShootPowerUp(float dt, KeyboardState kb)
+        private void UpdateShootPowerUp(float dt)
         {
             _powerUpManager.UpdateShootMode(dt);
 
             if (_powerUpManager.CanShoot)
             {
-                // Shooting
-                if (kb.IsKeyDown(Keys.Space) && _previousKeyState.IsKeyUp(Keys.Space))
+                // Shooting using InputHandler
+                if (_inputHandler.CheckShootInput())
                 {
                     var projectile = new Projectile(
                         _paddle.Center.X - GameConstants.ProjectileWidth / 2,
@@ -523,24 +467,15 @@ namespace AlleywayMonoGame
             }
         }
 
-        private void UpdatePaddle(float dt, KeyboardState kb)
+        private void UpdatePaddle(float dt)
         {
-            if (kb.IsKeyDown(Keys.Left) || kb.IsKeyDown(Keys.A))
-            {
-                _paddle.MoveLeft(dt);
-            }
-            else if (kb.IsKeyDown(Keys.Right) || kb.IsKeyDown(Keys.D))
-            {
-                _paddle.MoveRight(dt);
-            }
-            else
-            {
-                _paddle.Stop();
-            }
+            _inputHandler.HandlePaddleInput(_paddle, dt);
         }
 
-        private void UpdateBalls(float dt, KeyboardState kb)
+        private void UpdateBalls(float dt)
         {
+            bool checkLaunch = _inputHandler.CheckBallLaunchInput();
+            
             for (int i = _balls.Count - 1; i >= 0; i--)
             {
                 var ball = _balls[i];
@@ -555,7 +490,7 @@ namespace AlleywayMonoGame
                         GameConstants.BallSize
                     );
 
-                    if (kb.IsKeyDown(Keys.Space))
+                    if (checkLaunch)
                     {
                         ball.IsLaunched = true;
                         _scoreService.StartTimer();
@@ -589,7 +524,7 @@ namespace AlleywayMonoGame
                 _audioService.PlayPaddleHit();
             }
 
-            // Handle brick hits
+            // Handle brick hits using CollisionHandler
             foreach (var (index, brick) in collisionResult.BricksHit.OrderByDescending(b => b.index))
             {
                 HandleBrickDestruction(index, brick);
@@ -609,32 +544,14 @@ namespace AlleywayMonoGame
 
         private void HandleBrickDestruction(int index, Brick brick, bool fromProjectile = false)
         {
-            bool wasSpecialBrick = brick.Type == BrickType.Special;
-
+            // Delegate to CollisionHandler
+            var result = _collisionHandler.HandleBrickDestruction(brick, fromProjectile);
+            
             _bricks.RemoveAt(index);
-
-            // Calculate brick color
-            int brickHeight = 20;
-            int row = (brick.Bounds.Y - 50) / (brickHeight + 2);
-            Color brickColor = Brick.GetColorForRow(row);
-
-            // Effects
-            _particleSystem.SpawnExplosion(brick.Center, 24, brickColor);
-            
-            // Different sounds for projectile vs ball
-            if (fromProjectile)
-            {
-                _audioService.PlayProjectileExplosion();
-            }
-            else
-            {
-                _audioService.PlayExplosion();
-            }
-            
             _scoreService.AddBrickScore();
 
             // Special brick: randomly activate one of three power-ups (only if no power-up active)
-            if (wasSpecialBrick && !_powerUpManager.CanShoot && !_powerUpManager.BigPaddleActive)
+            if (result.WasSpecialBrick && !_powerUpManager.CanShoot && !_powerUpManager.BigPaddleActive)
             {
                 var random = new Random();
                 int powerUpType = random.Next(3); // 0, 1, or 2
@@ -661,25 +578,12 @@ namespace AlleywayMonoGame
 
         private void CheckProjectileCollisions()
         {
-            var collisions = _collisionSystem.CheckProjectileCollisions(
-                _projectiles,
-                _bricks,
-                GameConstants.GameAreaTop
-            );
-
-            foreach (var (projIndex, brickIndex, brick) in collisions.OrderByDescending(c => c.projectileIndex))
+            // Delegate to CollisionHandler
+            var bricksToRemove = _collisionHandler.CheckProjectileCollisions(_projectiles, _bricks);
+            
+            foreach (int brickIndex in bricksToRemove)
             {
-                if (brickIndex == -1)
-                {
-                    // Off-screen removal
-                    _projectiles.RemoveAt(projIndex);
-                }
-                else
-                {
-                    // Hit brick
-                    HandleBrickDestruction(brickIndex, brick, fromProjectile: true);
-                    _projectiles.RemoveAt(projIndex);
-                }
+                HandleBrickDestruction(brickIndex, _bricks[brickIndex], fromProjectile: true);
             }
         }
 
@@ -687,22 +591,25 @@ namespace AlleywayMonoGame
 
         #region Game Flow & Level Management
 
+        private void ApplyRestartResult(GameRestartResult result)
+        {
+            _bricks = result.NewBricks;
+            _paddle = result.NewPaddle;
+            _shopService = result.NewShopService;
+            _balls.Clear();
+            _balls.Add(result.InitialBall);
+            
+            // Recreate PowerUpManager with new paddle reference
+            _powerUpManager = new PowerUpManager(_paddle, _projectiles, _audioService);
+        }
+
         private void OnAllBallsLost()
         {
-            _powerUpManager.CanShoot = false;
-            _powerUpManager.ShootPowerTimer = 0f;
-            _projectiles.Clear();
-
-            _scoreService.LoseLife();
-
+            _gameFlowController.OnAllBallsLost(_balls, _paddle, SetupGameOverUI);
+            
             if (_scoreService.IsGameOver)
             {
-                SetupGameOverUI();
                 _audioService.PlayGameOver();
-            }
-            else
-            {
-                ResetBall();
             }
         }
 
@@ -717,16 +624,7 @@ namespace AlleywayMonoGame
                 return;
             }
 
-            _uiManager.LevelComplete = true;
-            _scoreService.StopTimer();
-            _uiManager.AnimationTimer = 0f;
-            _uiManager.MoneyAnimationDone = false;
-            _uiManager.AnimatedMoney = 0;
-            _uiManager.ChargeUpSoundPlayed = false;
-
-            _uiManager.LevelCompleteTimeBonus = _shopService.CalculateTimeBonus(_scoreService.GameTimer);
-
-            SetupShopUI();
+            _gameFlowController.OnLevelComplete(SetupShopUI);
             _audioService.PlayLevelComplete();
 
             // Stop all balls
@@ -735,102 +633,6 @@ namespace AlleywayMonoGame
                 ball.Velocity = Vector2.Zero;
                 ball.IsLaunched = false;
             }
-        }
-
-        private void AdvanceToNextLevel()
-        {
-            // Check for victory (all 10 levels completed)
-            if (_gameState.CurrentLevel >= 10)
-            {
-                _gameState.SetVictory();
-                SetupVictoryUI();
-                return;
-            }
-
-            _gameState.NextLevel();
-            _uiManager.LevelComplete = false;
-            _scoreService.ResetTimer();
-            
-            // Clear all active game elements
-            _projectiles.Clear();
-            _particleSystem.Clear();
-            _floatingTextSystem.Clear();
-            _powerUpManager.CanShoot = false;
-            _powerUpManager.ShootPowerTimer = 0f;
-            _powerUpManager.CannonExtension = 0f;
-            _powerUpManager.BigPaddleActive = false;
-            _powerUpManager.BigPaddleTimer = 0f;
-            
-            GenerateLevel();
-
-            // Reset paddle
-            _paddle = new Paddle(
-                GameConstants.ScreenWidth / 2 - GameConstants.PaddleWidth / 2,
-                GameConstants.ScreenHeight - 40,
-                GameConstants.PaddleWidth,
-                GameConstants.PaddleHeight,
-                GameConstants.PaddleSpeed,
-                GameConstants.ScreenWidth
-            );
-            _paddle.SpeedMultiplier = _shopService.PaddleSpeedMultiplier;
-            _paddle.ApplyPermanentSizeIncrease(_shopService.PaddleSizeMultiplier);
-
-            // Reset balls
-            _balls.Clear();
-            ResetBall();
-
-            // Spawn extra balls if purchased
-            for (int i = 0; i < _extraBallsPurchased; i++)
-            {
-                float angle = -90f + (i + 1) * 30f;
-                float radians = angle * (float)Math.PI / 180f;
-                float speed = 200f;
-
-                var extraBall = new Ball(
-                    new Rectangle(
-                        GameConstants.ScreenWidth / 2 - GameConstants.BallSize / 2,
-                        _paddle.Y - GameConstants.BallSize - 1,
-                        GameConstants.BallSize,
-                        GameConstants.BallSize
-                    ),
-                    new Vector2((float)Math.Cos(radians) * speed, (float)Math.Sin(radians) * speed),
-                    true
-                );
-                _balls.Add(extraBall);
-            }
-            _extraBallsPurchased = 0;
-
-            // Start with shoot mode if purchased
-            if (_startWithShootMode)
-            {
-                _powerUpManager.ActivateShootMode(startWithShootMode: true);
-                _startWithShootMode = false;
-            }
-
-            _scoreService.StartTimer();
-        }
-
-        private void RestartGame()
-        {
-            _scoreService.Reset();
-            _shopService = new ShopService();
-            _gameState.Reset();
-            _uiManager.ResetLevelComplete();
-            _powerUpManager.ResetAll();
-            _particleSystem.Clear();
-            _floatingTextSystem.Clear();
-
-            GenerateLevel();
-            ResetBall();
-
-            _paddle = new Paddle(
-                GameConstants.ScreenWidth / 2 - GameConstants.PaddleWidth / 2,
-                GameConstants.ScreenHeight - 40,
-                GameConstants.PaddleWidth,
-                GameConstants.PaddleHeight,
-                GameConstants.PaddleSpeed,
-                GameConstants.ScreenWidth
-            );
         }
 
         private void GenerateLevel()

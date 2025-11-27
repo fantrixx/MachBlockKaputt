@@ -141,12 +141,8 @@ namespace AlleywayMonoGame.UI
 
             // Score
             string scoreText = $"Score: {scoreService.Score}";
-            string timeText = $"Time: {scoreService.GetFormattedTime()}";
             Vector2 scoreSize = _font.MeasureString(scoreText);
-            Vector2 timeSize = _font.MeasureString(timeText);
             _spriteBatch.DrawString(_font, scoreText, new Vector2((GameConstants.ScreenWidth - scoreSize.X) / 2, yPos), Color.White);
-            yPos += 25;
-            _spriteBatch.DrawString(_font, timeText, new Vector2((GameConstants.ScreenWidth - timeSize.X) / 2, yPos), Color.White);
             yPos += 35;
 
             // Stats Box
