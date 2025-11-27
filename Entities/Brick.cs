@@ -34,7 +34,6 @@ namespace AlleywayMonoGame.Entities
     public enum BrickType
     {
         Normal,
-        ShootPowerUp,
-        ExtraBall
+        Special
     }
 }

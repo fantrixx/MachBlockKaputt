@@ -9,6 +9,8 @@ using AlleywayMonoGame.Entities;
 using AlleywayMonoGame.Services;
 using AlleywayMonoGame.Systems;
 using AlleywayMonoGame.Core;
+using AlleywayMonoGame.Managers;
+using AlleywayMonoGame.UI;
 
 namespace AlleywayMonoGame
 {
@@ -17,6 +19,8 @@ namespace AlleywayMonoGame
     /// </summary>
     public class Game1 : Game
     {
+        #region Fields
+
         // Core MonoGame components
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch = null!;
@@ -32,6 +36,14 @@ namespace AlleywayMonoGame
         private CollisionSystem _collisionSystem = null!;
         private LevelSystem _levelSystem = null!;
         private GameStateManager _gameState = null!;
+        
+        // Managers
+        private BackgroundManager _backgroundManager = null!;
+        private UIManager _uiManager = null!;
+        private PowerUpManager _powerUpManager = null!;
+        
+        // UI Rendering
+        private DialogRenderer? _dialogRenderer;
 
         // Entities
         private Paddle _paddle = null!;
@@ -49,57 +61,14 @@ namespace AlleywayMonoGame
         // Input
         private KeyboardState _previousKeyState;
 
-        // Power-up state
-        private bool _canShoot;
-        private float _shootPowerTimer;
-        private float _cannonExtension;
-        private float _flickerTimer;
-
-        // Level complete state
-        private bool _levelComplete;
-        private float _animationTimer;
-        private int _animatedMoney;
-        private bool _moneyAnimationDone;
-        private int _levelCompleteTimeBonus;
-        private bool _chargeUpSoundPlayed;
-        
-        // Money slam animation
-        private float _slamY;
-        private float _slamVelocity;
-        private float _slamScale = 1f;
-        private bool _slamAnimationDone;
-        private float _glowPulse;
-        
-        // Purchase animation
-        private bool _purchaseAnimationActive;
-        private float _purchaseCostX;
-        private float _purchaseCostY;
-        private int _purchaseCostAmount;
-        private float _purchaseAnimationTimer;
-        private float _balanceShake;
-        
-        // UI state
-        private Rectangle _nextLevelButton;
-        private bool _nextLevelButtonHovered;
-        private Rectangle[] _shopButtons = new Rectangle[3];
-        private bool[] _shopButtonsHovered = new bool[3];
-        
-        // Game over state
-        private Rectangle _retryButton;
-        private Rectangle _quitButton;
-        private bool _retryButtonHovered;
-        private bool _quitButtonHovered;
-
         // Shop upgrades
         private int _extraBallsPurchased;
         private bool _startWithShootMode;
+        private ShopItem[] _currentShopItems = new ShopItem[3];
 
-        // Victory state
-        private float _victoryGlowTimer;
-        private Rectangle _victoryRetryButton;
-        private Rectangle _victoryQuitButton;
-        private bool _victoryRetryButtonHovered;
-        private bool _victoryQuitButtonHovered;
+        #endregion
+
+        #region Initialization
 
         public Game1()
         {
@@ -123,6 +92,10 @@ namespace AlleywayMonoGame
             _floatingTextSystem = new FloatingTextSystem();
             _collisionSystem = new CollisionSystem();
             _levelSystem = new LevelSystem(GameConstants.ScreenWidth, GameConstants.GameAreaTop);
+            
+            // Initialize managers
+            _backgroundManager = new BackgroundManager();
+            _uiManager = new UIManager();
 
             // Initialize paddle
             _paddle = new Paddle(
@@ -140,6 +113,9 @@ namespace AlleywayMonoGame
             // Initialize input
             _previousKeyState = Keyboard.GetState();
 
+            // Initialize background
+            _backgroundManager.Initialize();
+
             // Generate first level
             GenerateLevel();
 
@@ -152,6 +128,9 @@ namespace AlleywayMonoGame
 
             // Initialize audio service
             _audioService = new AudioService();
+            
+            // Initialize PowerUpManager after AudioService is ready
+            _powerUpManager = new PowerUpManager(_paddle, _projectiles, _audioService);
 
             // Create base textures
             _whitePixel = new Texture2D(GraphicsDevice, 1, 1);
@@ -172,12 +151,22 @@ namespace AlleywayMonoGame
             try
             {
                 _font = Content.Load<SpriteFont>("DefaultFont");
+                
+                // Initialize DialogRenderer after font is loaded
+                if (_font != null && _whitePixel != null)
+                {
+                    _dialogRenderer = new DialogRenderer(_spriteBatch, _font, _whitePixel);
+                }
             }
             catch
             {
                 _font = null;
             }
         }
+
+        #endregion
+
+        #region Update Methods
 
         protected override void Update(GameTime gameTime)
         {
@@ -200,7 +189,7 @@ namespace AlleywayMonoGame
                 return;
             }
 
-            if (_levelComplete)
+            if (_uiManager.LevelComplete)
             {
                 UpdateLevelComplete(dt);
                 return;
@@ -212,23 +201,27 @@ namespace AlleywayMonoGame
             base.Update(gameTime);
         }
 
+        #endregion
+
+        #region Game State Updates
+
         private void UpdateVictory(float dt)
         {
-            _victoryGlowTimer += dt * 2f;
+            _uiManager.VictoryGlowTimer += dt * 2f;
 
             var mouseState = Mouse.GetState();
             Point mousePos = new Point(mouseState.X, mouseState.Y);
 
-            _victoryRetryButtonHovered = _victoryRetryButton.Contains(mousePos);
-            _victoryQuitButtonHovered = _victoryQuitButton.Contains(mousePos);
+            _uiManager.VictoryRetryButtonHovered = _uiManager.VictoryRetryButton.Contains(mousePos);
+            _uiManager.VictoryQuitButtonHovered = _uiManager.VictoryQuitButton.Contains(mousePos);
 
             if (mouseState.LeftButton == ButtonState.Pressed)
             {
-                if (_victoryRetryButtonHovered)
+                if (_uiManager.VictoryRetryButtonHovered)
                 {
                     RestartGame();
                 }
-                else if (_victoryQuitButtonHovered)
+                else if (_uiManager.VictoryQuitButtonHovered)
                 {
                     Exit();
                 }
@@ -240,16 +233,16 @@ namespace AlleywayMonoGame
             var mouseState = Mouse.GetState();
             Point mousePos = new Point(mouseState.X, mouseState.Y);
 
-            _retryButtonHovered = _retryButton.Contains(mousePos);
-            _quitButtonHovered = _quitButton.Contains(mousePos);
+            _uiManager.RetryButtonHovered = _uiManager.RetryButton.Contains(mousePos);
+            _uiManager.QuitButtonHovered = _uiManager.QuitButton.Contains(mousePos);
 
             if (mouseState.LeftButton == ButtonState.Pressed)
             {
-                if (_retryButtonHovered)
+                if (_uiManager.RetryButtonHovered)
                 {
                     RestartGame();
                 }
-                else if (_quitButtonHovered)
+                else if (_uiManager.QuitButtonHovered)
                 {
                     Exit();
                 }
@@ -258,43 +251,43 @@ namespace AlleywayMonoGame
 
         private void UpdateLevelComplete(float dt)
         {
-            _animationTimer += dt;
+            _uiManager.AnimationTimer += dt;
 
             // Money counting animation
-            if (!_moneyAnimationDone && _animationTimer > 1f)
+            if (!_uiManager.MoneyAnimationDone && _uiManager.AnimationTimer > 1f)
             {
                 // Play charge up sound once when counting starts
-                if (!_chargeUpSoundPlayed)
+                if (!_uiManager.ChargeUpSoundPlayed)
                 {
                     _audioService.PlayChargeUp();
-                    _chargeUpSoundPlayed = true;
+                    _uiManager.ChargeUpSoundPlayed = true;
                 }
                 
                 float animSpeed = dt * 200f;
-                _animatedMoney += (int)animSpeed;
-                if (_animatedMoney >= _levelCompleteTimeBonus)
+                _uiManager.AnimatedMoney += (int)animSpeed;
+                if (_uiManager.AnimatedMoney >= _uiManager.LevelCompleteTimeBonus)
                 {
-                    _animatedMoney = _levelCompleteTimeBonus;
-                    _moneyAnimationDone = true;
-                    _shopService.AddMoney(_levelCompleteTimeBonus);
+                    _uiManager.AnimatedMoney = _uiManager.LevelCompleteTimeBonus;
+                    _uiManager.MoneyAnimationDone = true;
+                    _shopService.AddMoney(_uiManager.LevelCompleteTimeBonus);
                     
-                    _slamY = -100f;
-                    _slamVelocity = 0f;
-                    _slamScale = 1f;
-                    _slamAnimationDone = false;
+                    _uiManager.SlamY = -100f;
+                    _uiManager.SlamVelocity = 0f;
+                    _uiManager.SlamScale = 1f;
+                    _uiManager.SlamAnimationDone = false;
                 }
             }
 
             // Slam animation
-            if (_moneyAnimationDone && !_slamAnimationDone)
+            if (_uiManager.MoneyAnimationDone && !_uiManager.SlamAnimationDone)
             {
                 UpdateSlamAnimation(dt);
             }
 
-            _glowPulse += dt * 3f;
+            _uiManager.GlowPulse += dt * 3f;
 
             // Purchase animation
-            if (_purchaseAnimationActive)
+            if (_uiManager.PurchaseAnimationActive)
             {
                 UpdatePurchaseAnimation(dt);
             }
@@ -306,16 +299,16 @@ namespace AlleywayMonoGame
         private void UpdateSlamAnimation(float dt)
         {
             float gravity = 1200f * dt;
-            _slamVelocity += gravity;
-            _slamY += _slamVelocity;
+            _uiManager.SlamVelocity += gravity;
+            _uiManager.SlamY += _uiManager.SlamVelocity;
 
             float targetY = 0f;
-            if (_slamY >= targetY)
+            if (_uiManager.SlamY >= targetY)
             {
-                _slamY = targetY;
-                float prevVelocity = _slamVelocity;
-                _slamVelocity *= -0.4f;
-                _slamScale = 1.2f;
+                _uiManager.SlamY = targetY;
+                float prevVelocity = _uiManager.SlamVelocity;
+                _uiManager.SlamVelocity *= -0.4f;
+                _uiManager.SlamScale = 1.2f;
 
                 if (prevVelocity > 0f && Math.Abs(prevVelocity) > 50f)
                 {
@@ -323,45 +316,45 @@ namespace AlleywayMonoGame
                     _particleSystem.SpawnDustCloud(impactPos, 20);
                 }
 
-                if (Math.Abs(_slamVelocity) < 30f)
+                if (Math.Abs(_uiManager.SlamVelocity) < 30f)
                 {
-                    _slamVelocity = 0f;
-                    _slamAnimationDone = true;
+                    _uiManager.SlamVelocity = 0f;
+                    _uiManager.SlamAnimationDone = true;
                 }
             }
 
-            if (_slamScale > 1f)
+            if (_uiManager.SlamScale > 1f)
             {
-                _slamScale -= dt * 1.5f;
-                if (_slamScale < 1f) _slamScale = 1f;
+                _uiManager.SlamScale -= dt * 1.5f;
+                if (_uiManager.SlamScale < 1f) _uiManager.SlamScale = 1f;
             }
         }
 
         private void UpdatePurchaseAnimation(float dt)
         {
-            _purchaseAnimationTimer += dt;
+            _uiManager.PurchaseAnimationTimer += dt;
 
-            if (_purchaseAnimationTimer < 0.5f)
+            if (_uiManager.PurchaseAnimationTimer < 0.5f)
             {
-                float progress = _purchaseAnimationTimer / 0.5f;
+                float progress = _uiManager.PurchaseAnimationTimer / 0.5f;
                 float eased = 1f - (float)Math.Pow(1f - progress, 3);
-                _purchaseCostX += (GameConstants.ScreenWidth / 2 - _purchaseCostX) * eased * dt * 8f;
+                _uiManager.PurchaseCostX += (GameConstants.ScreenWidth / 2 - _uiManager.PurchaseCostX) * eased * dt * 8f;
             }
-            else if (_purchaseAnimationTimer < 0.8f)
+            else if (_uiManager.PurchaseAnimationTimer < 0.8f)
             {
-                if (_purchaseAnimationTimer >= 0.5f && _purchaseAnimationTimer - dt < 0.5f)
+                if (_uiManager.PurchaseAnimationTimer >= 0.5f && _uiManager.PurchaseAnimationTimer - dt < 0.5f)
                 {
                     Vector2 impactPos = new Vector2(GameConstants.ScreenWidth / 2, 40 + 3 * 50 + 10);
                     _particleSystem.SpawnExplosion(impactPos, 20, Color.Gold);
                 }
 
-                float shakeIntensity = 10f * (1f - (_purchaseAnimationTimer - 0.5f) / 0.3f);
-                _balanceShake = ((float)new Random().NextDouble() - 0.5f) * shakeIntensity * 2f;
+                float shakeIntensity = 10f * (1f - (_uiManager.PurchaseAnimationTimer - 0.5f) / 0.3f);
+                _uiManager.BalanceShake = ((float)new Random().NextDouble() - 0.5f) * shakeIntensity * 2f;
             }
             else
             {
-                _purchaseAnimationActive = false;
-                _balanceShake = 0f;
+                _uiManager.PurchaseAnimationActive = false;
+                _uiManager.BalanceShake = 0f;
             }
         }
 
@@ -372,34 +365,44 @@ namespace AlleywayMonoGame
 
             for (int i = 0; i < 3; i++)
             {
-                _shopButtonsHovered[i] = _shopButtons[i].Contains(mousePos);
+                _uiManager.ShopButtonsHovered[i] = _uiManager.ShopButtons[i].Contains(mousePos);
             }
-            _nextLevelButtonHovered = _nextLevelButton.Contains(mousePos);
+            _uiManager.NextLevelButtonHovered = _uiManager.NextLevelButton.Contains(mousePos);
 
-            if (mouseState.LeftButton == ButtonState.Pressed && !_purchaseAnimationActive && _moneyAnimationDone)
+            if (mouseState.LeftButton == ButtonState.Pressed && !_uiManager.PurchaseAnimationActive && _uiManager.MoneyAnimationDone)
             {
-                if (_shopButtonsHovered[0] && _shopService.CanAfford(ShopItem.SpeedUpgrade))
+                // Check each shop button
+                for (int i = 0; i < 3; i++)
                 {
-                    StartPurchaseAnimation(ShopItem.SpeedUpgrade, 0);
-                    _shopService.Purchase(ShopItem.SpeedUpgrade);
-                    _paddle.SpeedMultiplier = _shopService.PaddleSpeedMultiplier;
-                    _audioService.PlayCashRegister();
+                    if (_uiManager.ShopButtonsHovered[i] && _shopService.CanAfford(_currentShopItems[i]))
+                    {
+                        StartPurchaseAnimation(_currentShopItems[i], i);
+                        _shopService.Purchase(_currentShopItems[i]);
+                        
+                        // Apply the purchase
+                        switch (_currentShopItems[i])
+                        {
+                            case ShopItem.SpeedUpgrade:
+                                _paddle.SpeedMultiplier = _shopService.PaddleSpeedMultiplier;
+                                break;
+                            case ShopItem.ExtraBall:
+                                _extraBallsPurchased++;
+                                break;
+                            case ShopItem.ShootMode:
+                                _startWithShootMode = true;
+                                break;
+                            case ShopItem.PaddleSize:
+                                // Apply permanent size increase
+                                _paddle.ApplyPermanentSizeIncrease(_shopService.PaddleSizeMultiplier);
+                                break;
+                        }
+                        
+                        _audioService.PlayCashRegister();
+                        break;
+                    }
                 }
-                else if (_shopButtonsHovered[1] && _shopService.CanAfford(ShopItem.ExtraBall))
-                {
-                    StartPurchaseAnimation(ShopItem.ExtraBall, 1);
-                    _shopService.Purchase(ShopItem.ExtraBall);
-                    _extraBallsPurchased++;
-                    _audioService.PlayCashRegister();
-                }
-                else if (_shopButtonsHovered[2] && _shopService.CanAfford(ShopItem.ShootMode))
-                {
-                    StartPurchaseAnimation(ShopItem.ShootMode, 2);
-                    _shopService.Purchase(ShopItem.ShootMode);
-                    _startWithShootMode = true;
-                    _audioService.PlayCashRegister();
-                }
-                else if (_nextLevelButtonHovered)
+                
+                if (_uiManager.NextLevelButtonHovered)
                 {
                     AdvanceToNextLevel();
                 }
@@ -408,12 +411,16 @@ namespace AlleywayMonoGame
 
         private void StartPurchaseAnimation(ShopItem item, int buttonIndex)
         {
-            _purchaseAnimationActive = true;
-            _purchaseCostAmount = _shopService.GetCost(item);
-            _purchaseCostX = _shopButtons[buttonIndex].X - 150;
-            _purchaseCostY = 40 + 3 * 50;
-            _purchaseAnimationTimer = 0f;
+            _uiManager.PurchaseAnimationActive = true;
+            _uiManager.PurchaseCostAmount = _shopService.GetCost(item);
+            _uiManager.PurchaseCostX = _uiManager.ShopButtons[buttonIndex].X - 150;
+            _uiManager.PurchaseCostY = 40 + 3 * 50;
+            _uiManager.PurchaseAnimationTimer = 0f;
         }
+
+        #endregion
+
+        #region Gameplay Logic
 
         private void UpdateGameplay(float dt)
         {
@@ -435,11 +442,17 @@ namespace AlleywayMonoGame
             // Update timer
             _scoreService.UpdateTimer(dt);
 
+            // Update background
+            _backgroundManager.Update(dt);
+
             // Update flicker for special bricks
-            _flickerTimer += dt * 10f;
+            _powerUpManager.FlickerTimer += dt * 10f;
 
             // Update shoot power-up
             UpdateShootPowerUp(dt, kb);
+
+            // Update big paddle power-up
+            UpdateBigPaddle(dt);
 
             // Update projectiles
             UpdateProjectiles(dt);
@@ -454,7 +467,7 @@ namespace AlleywayMonoGame
             CheckProjectileCollisions();
 
             // Check for level complete
-            if (_bricks.Count == 0 && !_levelComplete)
+            if (_bricks.Count == 0 && !_uiManager.LevelComplete)
             {
                 OnLevelComplete();
             }
@@ -468,20 +481,10 @@ namespace AlleywayMonoGame
 
         private void UpdateShootPowerUp(float dt, KeyboardState kb)
         {
-            if (_canShoot)
+            _powerUpManager.UpdateShootMode(dt);
+
+            if (_powerUpManager.CanShoot)
             {
-                _shootPowerTimer -= dt;
-                if (_shootPowerTimer <= 0)
-                {
-                    _canShoot = false;
-                }
-
-                if (_cannonExtension < 1f)
-                {
-                    _cannonExtension += dt * 3f;
-                    if (_cannonExtension > 1f) _cannonExtension = 1f;
-                }
-
                 // Shooting
                 if (kb.IsKeyDown(Keys.Space) && _previousKeyState.IsKeyUp(Keys.Space))
                 {
@@ -496,14 +499,11 @@ namespace AlleywayMonoGame
                     _audioService.PlayRocketLaunch();
                 }
             }
-            else
-            {
-                if (_cannonExtension > 0f)
-                {
-                    _cannonExtension -= dt * 3f;
-                    if (_cannonExtension < 0f) _cannonExtension = 0f;
-                }
-            }
+        }
+
+        private void UpdateBigPaddle(float dt)
+        {
+            _powerUpManager.UpdateBigPaddle(dt);
         }
 
         private void UpdateProjectiles(float dt)
@@ -609,8 +609,7 @@ namespace AlleywayMonoGame
 
         private void HandleBrickDestruction(int index, Brick brick, bool fromProjectile = false)
         {
-            bool wasShootBrick = brick.Type == BrickType.ShootPowerUp;
-            bool wasExtraBallBrick = brick.Type == BrickType.ExtraBall;
+            bool wasSpecialBrick = brick.Type == BrickType.Special;
 
             _bricks.RemoveAt(index);
 
@@ -634,17 +633,29 @@ namespace AlleywayMonoGame
             
             _scoreService.AddBrickScore();
 
-            // Power-ups (only if shoot mode not active)
-            if (wasShootBrick && !_canShoot)
+            // Special brick: randomly activate one of three power-ups (only if no power-up active)
+            if (wasSpecialBrick && !_powerUpManager.CanShoot && !_powerUpManager.BigPaddleActive)
             {
-                _canShoot = true;
-                _shootPowerTimer = GameConstants.ShootPowerDuration;
-            }
-
-            if (wasExtraBallBrick && !_canShoot)
-            {
-                SpawnExtraBall(brick.Center);
-                _floatingTextSystem.AddText("+BALL", brick.Center, Color.White, 3f);
+                var random = new Random();
+                int powerUpType = random.Next(3); // 0, 1, or 2
+                
+                switch (powerUpType)
+                {
+                    case 0: // Shoot mode
+                        _powerUpManager.ActivateShootMode();
+                        _floatingTextSystem.AddText("SHOOT MODE!", brick.Center, Color.Yellow, 3f);
+                        break;
+                        
+                    case 1: // Extra ball
+                        SpawnExtraBall(brick.Center);
+                        _floatingTextSystem.AddText("+BALL", brick.Center, Color.White, 3f);
+                        break;
+                        
+                    case 2: // Big paddle
+                        _powerUpManager.ActivateBigPaddle();
+                        _floatingTextSystem.AddText("BIG PADDLE!", brick.Center, Color.Cyan, 3f);
+                        break;
+                }
             }
         }
 
@@ -672,10 +683,14 @@ namespace AlleywayMonoGame
             }
         }
 
+        #endregion
+
+        #region Game Flow & Level Management
+
         private void OnAllBallsLost()
         {
-            _canShoot = false;
-            _shootPowerTimer = 0f;
+            _powerUpManager.CanShoot = false;
+            _powerUpManager.ShootPowerTimer = 0f;
             _projectiles.Clear();
 
             _scoreService.LoseLife();
@@ -683,6 +698,7 @@ namespace AlleywayMonoGame
             if (_scoreService.IsGameOver)
             {
                 SetupGameOverUI();
+                _audioService.PlayGameOver();
             }
             else
             {
@@ -697,19 +713,21 @@ namespace AlleywayMonoGame
             {
                 _gameState.SetVictory();
                 SetupVictoryUI();
+                _audioService.PlayVictory();
                 return;
             }
 
-            _levelComplete = true;
+            _uiManager.LevelComplete = true;
             _scoreService.StopTimer();
-            _animationTimer = 0f;
-            _moneyAnimationDone = false;
-            _animatedMoney = 0;
-            _chargeUpSoundPlayed = false;
+            _uiManager.AnimationTimer = 0f;
+            _uiManager.MoneyAnimationDone = false;
+            _uiManager.AnimatedMoney = 0;
+            _uiManager.ChargeUpSoundPlayed = false;
 
-            _levelCompleteTimeBonus = _shopService.CalculateTimeBonus(_scoreService.GameTimer);
+            _uiManager.LevelCompleteTimeBonus = _shopService.CalculateTimeBonus(_scoreService.GameTimer);
 
             SetupShopUI();
+            _audioService.PlayLevelComplete();
 
             // Stop all balls
             foreach (var ball in _balls)
@@ -730,16 +748,18 @@ namespace AlleywayMonoGame
             }
 
             _gameState.NextLevel();
-            _levelComplete = false;
+            _uiManager.LevelComplete = false;
             _scoreService.ResetTimer();
             
             // Clear all active game elements
             _projectiles.Clear();
             _particleSystem.Clear();
             _floatingTextSystem.Clear();
-            _canShoot = false;
-            _shootPowerTimer = 0f;
-            _cannonExtension = 0f;
+            _powerUpManager.CanShoot = false;
+            _powerUpManager.ShootPowerTimer = 0f;
+            _powerUpManager.CannonExtension = 0f;
+            _powerUpManager.BigPaddleActive = false;
+            _powerUpManager.BigPaddleTimer = 0f;
             
             GenerateLevel();
 
@@ -753,6 +773,7 @@ namespace AlleywayMonoGame
                 GameConstants.ScreenWidth
             );
             _paddle.SpeedMultiplier = _shopService.PaddleSpeedMultiplier;
+            _paddle.ApplyPermanentSizeIncrease(_shopService.PaddleSizeMultiplier);
 
             // Reset balls
             _balls.Clear();
@@ -782,8 +803,7 @@ namespace AlleywayMonoGame
             // Start with shoot mode if purchased
             if (_startWithShootMode)
             {
-                _canShoot = true;
-                _shootPowerTimer = 6f;
+                _powerUpManager.ActivateShootMode(startWithShootMode: true);
                 _startWithShootMode = false;
             }
 
@@ -795,9 +815,8 @@ namespace AlleywayMonoGame
             _scoreService.Reset();
             _shopService = new ShopService();
             _gameState.Reset();
-            _levelComplete = false;
-            _canShoot = false;
-            _projectiles.Clear();
+            _uiManager.ResetLevelComplete();
+            _powerUpManager.ResetAll();
             _particleSystem.Clear();
             _floatingTextSystem.Clear();
 
@@ -851,20 +870,27 @@ namespace AlleywayMonoGame
             _balls.Add(ball);
         }
 
+        #endregion
+
+        #region UI Setup Methods
+
         private void SetupGameOverUI()
         {
+            // Grid-basiertes Layout: Buttons ganz unten positionieren
             int buttonWidth = 150;
             int buttonHeight = 50;
             int buttonSpacing = 20;
-            _retryButton = new Rectangle(
+            int buttonY = GameConstants.ScreenHeight - 80; // Fester Abstand vom unteren Rand
+            
+            _uiManager.RetryButton = new Rectangle(
                 GameConstants.ScreenWidth / 2 - buttonWidth - buttonSpacing / 2,
-                GameConstants.ScreenHeight / 2 + 60,
+                buttonY,
                 buttonWidth,
                 buttonHeight
             );
-            _quitButton = new Rectangle(
+            _uiManager.QuitButton = new Rectangle(
                 GameConstants.ScreenWidth / 2 + buttonSpacing / 2,
-                GameConstants.ScreenHeight / 2 + 60,
+                buttonY,
                 buttonWidth,
                 buttonHeight
             );
@@ -875,13 +901,13 @@ namespace AlleywayMonoGame
             int buttonWidth = 150;
             int buttonHeight = 50;
             int buttonSpacing = 20;
-            _victoryRetryButton = new Rectangle(
+            _uiManager.VictoryRetryButton = new Rectangle(
                 GameConstants.ScreenWidth / 2 - buttonWidth - buttonSpacing / 2,
                 GameConstants.ScreenHeight - 120,
                 buttonWidth,
                 buttonHeight
             );
-            _victoryQuitButton = new Rectangle(
+            _uiManager.VictoryQuitButton = new Rectangle(
                 GameConstants.ScreenWidth / 2 + buttonSpacing / 2,
                 GameConstants.ScreenHeight - 120,
                 buttonWidth,
@@ -891,36 +917,50 @@ namespace AlleywayMonoGame
 
         private void SetupShopUI()
         {
-            int buttonWidth = 220;
+            // Generate random shop items
+            _currentShopItems = _shopService.GetRandomShopItems(3);
+            
+            // Shop Box dimensions (must match DrawLevelComplete)
+            int shopBoxWidth = 420;
+            int shopBoxX = (GameConstants.ScreenWidth - shopBoxWidth) / 2;
+            int shopContentY = 395; // yPos from DrawLevelComplete (335) + 15 offset + box position adjustments
+            
+            int buttonWidth = 380;
             int buttonHeight = 35;
-            int shopButtonStartY = 340;
+            int buttonX = shopBoxX + (shopBoxWidth - buttonWidth) / 2;
+            int buttonSpacing = 10;
             
             for (int i = 0; i < 3; i++)
             {
-                _shopButtons[i] = new Rectangle(
-                    GameConstants.ScreenWidth / 2 - buttonWidth / 2,
-                    shopButtonStartY + i * 42,
+                _uiManager.ShopButtons[i] = new Rectangle(
+                    buttonX,
+                    shopContentY + i * (buttonHeight + buttonSpacing),
                     buttonWidth,
                     buttonHeight
                 );
             }
 
-            _nextLevelButton = new Rectangle(
+            _uiManager.NextLevelButton = new Rectangle(
                 GameConstants.ScreenWidth / 2 - 100,
-                shopButtonStartY + 3 * 42 + 20,
+                shopContentY + 3 * (buttonHeight + buttonSpacing) + 20,
                 200,
                 50
             );
         }
 
+        #endregion
+
+        #region Drawing Methods
+
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.CornflowerBlue);
+            GraphicsDevice.Clear(Color.Black);
 
             _spriteBatch.Begin();
 
             if (_whitePixel != null)
             {
+                _backgroundManager.Draw(_spriteBatch, _whitePixel);
                 DrawGame();
 
                 if (_gameState.IsVictory)
@@ -931,7 +971,7 @@ namespace AlleywayMonoGame
                 {
                     DrawGameOver();
                 }
-                else if (_levelComplete)
+                else if (_uiManager.LevelComplete)
                 {
                     DrawLevelComplete();
                 }
@@ -944,9 +984,31 @@ namespace AlleywayMonoGame
 
         private void DrawGame()
         {
-            // UI Area
-            _spriteBatch.Draw(_whitePixel, new Rectangle(0, 0, GameConstants.ScreenWidth, GameConstants.UIHeight), Color.DarkBlue * 0.8f);
-            _spriteBatch.Draw(_whitePixel, new Rectangle(0, GameConstants.UIHeight, GameConstants.ScreenWidth, 3), Color.White);
+            // UI Area - Pixel Art style with darker space theme
+            // Dark gradient background
+            for (int i = 0; i < 5; i++)
+            {
+                float alpha = 0.8f - (i * 0.1f);
+                _spriteBatch.Draw(_whitePixel, new Rectangle(0, i * 8, GameConstants.ScreenWidth, 8), new Color(5, 5, 25) * alpha);
+            }
+            
+            // Pixel stars in UI
+            for (int x = 0; x < GameConstants.ScreenWidth; x += 40)
+            {
+                for (int y = 5; y < GameConstants.UIHeight - 5; y += 15)
+                {
+                    if ((x + y) % 80 == 0)
+                    {
+                        _spriteBatch.Draw(_whitePixel, new Rectangle(x, y, 1, 1), Color.White * 0.3f);
+                    }
+                }
+            }
+            
+            // Border - Pixel Art style
+            // Top border
+            _spriteBatch.Draw(_whitePixel, new Rectangle(0, GameConstants.UIHeight, GameConstants.ScreenWidth, 2), new Color(100, 150, 255));
+            // Bottom glow
+            _spriteBatch.Draw(_whitePixel, new Rectangle(0, GameConstants.UIHeight + 2, GameConstants.ScreenWidth, 1), new Color(150, 200, 255) * 0.5f);
 
             // Paddle
             DrawPaddle();
@@ -1006,9 +1068,9 @@ namespace AlleywayMonoGame
             DrawUI();
 
             // Shoot mode indicator
-            if (_canShoot && _font != null)
+            if (_powerUpManager.CanShoot && _font != null)
             {
-                float textFlicker = (float)Math.Sin(_flickerTimer * 1.5f) * 0.5f + 0.5f;
+                float textFlicker = (float)Math.Sin(_powerUpManager.FlickerTimer * 1.5f) * 0.5f + 0.5f;
                 string powerUpText = "SPACE TO SHOOT";
                 Vector2 textSize = _font.MeasureString(powerUpText);
                 Vector2 textPos = new Vector2((GameConstants.ScreenWidth - textSize.X) / 2, GameConstants.ScreenHeight / 2 - 90);
@@ -1026,6 +1088,47 @@ namespace AlleywayMonoGame
                 }
                 _spriteBatch.DrawString(_font, powerUpText, textPos, Color.Yellow * alpha);
             }
+        }
+
+        private void DrawPixelBox(int x, int y, int width, int height, Color color, int thickness)
+        {
+            // Top
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x, y, width, thickness), color);
+            // Bottom
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x, y + height - thickness, width, thickness), color);
+            // Left
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x, y, thickness, height), color);
+            // Right
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + width - thickness, y, thickness, height), color);
+        }
+
+        private void DrawPixelButton(Rectangle button, bool isHovered, string text, Color normalColor, Color darkColor)
+        {
+            if (_font == null) return;
+            
+            Color buttonColor = isHovered ? Color.Lerp(normalColor, Color.White, 0.3f) : normalColor;
+            
+            // Main button body
+            _spriteBatch.Draw(_whitePixel, button, buttonColor);
+            
+            // Pixel-Art 3D effect
+            // Top highlight
+            _spriteBatch.Draw(_whitePixel, new Rectangle(button.X + 3, button.Y + 3, button.Width - 6, 2), Color.Lerp(buttonColor, Color.White, 0.5f));
+            // Left highlight
+            _spriteBatch.Draw(_whitePixel, new Rectangle(button.X + 3, button.Y + 3, 2, button.Height - 6), Color.Lerp(buttonColor, Color.White, 0.5f));
+            // Bottom shadow
+            _spriteBatch.Draw(_whitePixel, new Rectangle(button.X + 3, button.Bottom - 5, button.Width - 6, 2), darkColor);
+            // Right shadow
+            _spriteBatch.Draw(_whitePixel, new Rectangle(button.Right - 5, button.Y + 3, 2, button.Height - 6), darkColor);
+            
+            // Border
+            DrawPixelBox(button.X, button.Y, button.Width, button.Height, Color.Black, 2);
+            
+            // Text
+            Vector2 textSize = _font.MeasureString(text);
+            Vector2 textPos = new Vector2(button.X + (button.Width - textSize.X) / 2, button.Y + (button.Height - textSize.Y) / 2);
+            _spriteBatch.DrawString(_font, text, textPos + new Vector2(1, 1), Color.Black * 0.5f);
+            _spriteBatch.DrawString(_font, text, textPos, Color.White);
         }
 
         private void DrawPaddle()
@@ -1055,17 +1158,17 @@ namespace AlleywayMonoGame
             _spriteBatch.Draw(_whitePixel, new Rectangle(paddle.X + paddle.Width / 2 - 1, paddle.Y + 6, 2, paddle.Height - 12), new Color(0, 150, 255) * glowPulse);
 
             // Cannon
-            if (_cannonExtension > 0f)
+            if (_powerUpManager.CannonExtension > 0f)
             {
                 int cannonWidth = 8;
-                int cannonHeight = (int)(20 * _cannonExtension);
+                int cannonHeight = (int)(20 * _powerUpManager.CannonExtension);
                 int cannonX = paddle.X + paddle.Width / 2 - cannonWidth / 2;
                 int cannonY = paddle.Y - cannonHeight;
 
                 _spriteBatch.Draw(_whitePixel, new Rectangle(cannonX, cannonY, cannonWidth, cannonHeight), new Color(50, 55, 65));
                 _spriteBatch.Draw(_whitePixel, new Rectangle(cannonX + 1, cannonY, cannonWidth - 2, cannonHeight), new Color(30, 35, 45));
 
-                if (_cannonExtension > 0.8f)
+                if (_powerUpManager.CannonExtension > 0.8f)
                 {
                     _spriteBatch.Draw(_whitePixel, new Rectangle(cannonX + 2, cannonY, cannonWidth - 4, 3), Color.Orange * glowPulse);
                 }
@@ -1084,21 +1187,66 @@ namespace AlleywayMonoGame
                 int row = (brick.Bounds.Y - 50) / (brickHeight + 2);
                 Color brickColor = Brick.GetColorForRow(row);
 
-                bool isSpecial = (brick.Type == BrickType.ShootPowerUp || brick.Type == BrickType.ExtraBall) && !_canShoot;
+                bool isSpecial = brick.Type == BrickType.Special && !_powerUpManager.CanShoot && !_powerUpManager.BigPaddleActive;
 
                 if (isSpecial)
                 {
-                    float flickerAlpha = (float)Math.Sin(_flickerTimer * 2) * 0.5f + 0.5f;
+                    // Animated special block - Pixel Art style
+                    float flickerAlpha = (float)Math.Sin(_powerUpManager.FlickerTimer * 2) * 0.5f + 0.5f;
                     Color goldColor = new Color(255, 215, 0);
                     Color brightColor = Color.White;
                     Color specialColor = Color.Lerp(goldColor, brightColor, flickerAlpha);
 
+                    // Main body
                     _spriteBatch.Draw(_whitePixel, brick.Bounds, specialColor);
-                    _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 2, brick.Bounds.Y + 2, brick.Bounds.Width - 4, brick.Bounds.Height - 4), brickColor * 0.8f);
+                    
+                    // Inner area
+                    _spriteBatch.Draw(_whitePixel, 
+                        new Rectangle(brick.Bounds.X + 2, brick.Bounds.Y + 2, brick.Bounds.Width - 4, brick.Bounds.Height - 4), 
+                        brickColor * 0.9f);
+                    
+                    // Sparkle effect - pixel dots
+                    int sparkleOffset = (int)(_powerUpManager.FlickerTimer * 10) % 4;
+                    for (int sx = 0; sx < brick.Bounds.Width; sx += 8)
+                    {
+                        for (int sy = 0; sy < brick.Bounds.Height; sy += 6)
+                        {
+                            if ((sx + sy + sparkleOffset) % 12 == 0)
+                            {
+                                _spriteBatch.Draw(_whitePixel, 
+                                    new Rectangle(brick.Bounds.X + sx, brick.Bounds.Y + sy, 1, 1), 
+                                    Color.White * flickerAlpha);
+                            }
+                        }
+                    }
                 }
                 else
                 {
+                    // Normal block - Pixel Art 3D style
+                    // Main body
                     _spriteBatch.Draw(_whitePixel, brick.Bounds, brickColor);
+                    
+                    // Top highlight (lighter)
+                    Color highlightColor = Color.Lerp(brickColor, Color.White, 0.4f);
+                    _spriteBatch.Draw(_whitePixel, 
+                        new Rectangle(brick.Bounds.X + 2, brick.Bounds.Y + 2, brick.Bounds.Width - 4, 2), 
+                        highlightColor);
+                    
+                    // Left highlight
+                    _spriteBatch.Draw(_whitePixel, 
+                        new Rectangle(brick.Bounds.X + 2, brick.Bounds.Y + 2, 2, brick.Bounds.Height - 4), 
+                        highlightColor);
+                    
+                    // Bottom shadow (darker)
+                    Color shadowColor = brickColor * 0.5f;
+                    _spriteBatch.Draw(_whitePixel, 
+                        new Rectangle(brick.Bounds.X + 2, brick.Bounds.Bottom - 4, brick.Bounds.Width - 4, 2), 
+                        shadowColor);
+                    
+                    // Right shadow
+                    _spriteBatch.Draw(_whitePixel, 
+                        new Rectangle(brick.Bounds.Right - 4, brick.Bounds.Y + 2, 2, brick.Bounds.Height - 4), 
+                        shadowColor);
                 }
             }
         }
@@ -1135,362 +1283,22 @@ namespace AlleywayMonoGame
 
         private void DrawGameOver()
         {
-            if (_font == null || _whitePixel == null) return;
-
-            _spriteBatch.Draw(_whitePixel, new Rectangle(0, 0, GameConstants.ScreenWidth, GameConstants.ScreenHeight), Color.Black * 0.8f);
-
-            int yPos = GameConstants.ScreenHeight / 2 - 150;
-
-            // Title
-            string gameOverText = "GAME OVER";
-            Vector2 titleSize = _font.MeasureString(gameOverText);
-            Vector2 titlePos = new Vector2((GameConstants.ScreenWidth - titleSize.X) / 2, yPos);
-
-            for (int ox = -2; ox <= 2; ox++)
-            {
-                for (int oy = -2; oy <= 2; oy++)
-                {
-                    if (ox != 0 || oy != 0)
-                    {
-                        _spriteBatch.DrawString(_font, gameOverText, titlePos + new Vector2(ox, oy), Color.DarkRed);
-                    }
-                }
-            }
-            _spriteBatch.DrawString(_font, gameOverText, titlePos, Color.Red);
-            yPos += 50;
-
-            // Score and Time
-            string scoreText = $"Score: {_scoreService.Score}";
-            string timeText = $"Time: {_scoreService.GetFormattedTime()}";
-            Vector2 scoreSize = _font.MeasureString(scoreText);
-            Vector2 timeSize = _font.MeasureString(timeText);
-            _spriteBatch.DrawString(_font, scoreText, new Vector2((GameConstants.ScreenWidth - scoreSize.X) / 2, yPos), Color.White);
-            yPos += 30;
-            _spriteBatch.DrawString(_font, timeText, new Vector2((GameConstants.ScreenWidth - timeSize.X) / 2, yPos), Color.White);
-            yPos += 50;
-
-            // Statistics
-            string statsTitle = "=== STATISTICS ===";
-            Vector2 statsTitleSize = _font.MeasureString(statsTitle);
-            _spriteBatch.DrawString(_font, statsTitle, new Vector2((GameConstants.ScreenWidth - statsTitleSize.X) / 2, yPos), Color.Cyan);
-            yPos += 35;
-
-            string earnedText = $"Total Earned: ${_shopService.TotalEarned}";
-            string spentText = $"Total Spent: ${_shopService.TotalSpent}";
-            string profitText = $"Profit: ${_shopService.TotalEarned - _shopService.TotalSpent}";
-            
-            Vector2 earnedSize = _font.MeasureString(earnedText);
-            Vector2 spentSize = _font.MeasureString(spentText);
-            Vector2 profitSize = _font.MeasureString(profitText);
-            
-            _spriteBatch.DrawString(_font, earnedText, new Vector2((GameConstants.ScreenWidth - earnedSize.X) / 2, yPos), Color.LightGreen);
-            yPos += 30;
-            _spriteBatch.DrawString(_font, spentText, new Vector2((GameConstants.ScreenWidth - spentSize.X) / 2, yPos), Color.LightCoral);
-            yPos += 30;
-            
-            Color profitColor = (_shopService.TotalEarned - _shopService.TotalSpent) >= 0 ? Color.Gold : Color.Red;
-            _spriteBatch.DrawString(_font, profitText, new Vector2((GameConstants.ScreenWidth - profitSize.X) / 2, yPos), profitColor);
-            yPos += 50;
-
-            // Buttons
-            Color retryColor = _retryButtonHovered ? Color.LightGreen : Color.Green;
-            _spriteBatch.Draw(_whitePixel, _retryButton, retryColor);
-            string retryText = "RETRY";
-            Vector2 retryTextSize = _font.MeasureString(retryText);
-            _spriteBatch.DrawString(_font, retryText, new Vector2(_retryButton.X + (_retryButton.Width - retryTextSize.X) / 2, _retryButton.Y + (_retryButton.Height - retryTextSize.Y) / 2), Color.Black);
-
-            Color quitColor = _quitButtonHovered ? Color.LightCoral : Color.DarkRed;
-            _spriteBatch.Draw(_whitePixel, _quitButton, quitColor);
-            string quitText = "QUIT";
-            Vector2 quitTextSize = _font.MeasureString(quitText);
-            _spriteBatch.DrawString(_font, quitText, new Vector2(_quitButton.X + (_quitButton.Width - quitTextSize.X) / 2, _quitButton.Y + (_quitButton.Height - quitTextSize.Y) / 2), Color.White);
+            if (_dialogRenderer == null) return;
+            _dialogRenderer.DrawGameOver(_uiManager, _scoreService, _shopService, DrawPixelBox, DrawPixelButton);
         }
 
         private void DrawVictory()
         {
-            if (_font == null || _whitePixel == null) return;
-
-            _spriteBatch.Draw(_whitePixel, new Rectangle(0, 0, GameConstants.ScreenWidth, GameConstants.ScreenHeight), Color.Black * 0.85f);
-
-            int yPos = 80;
-
-            // Main Title with glow effect
-            string victoryText = "Winner, Winner";
-            string chickenText = "Chicken Dinner!";
-            
-            float glowIntensity = (float)Math.Sin(_victoryGlowTimer) * 0.3f + 0.7f;
-            Color glowColor = new Color(255, 215, 0) * glowIntensity; // Gold with pulse
-
-            // Winner, Winner
-            Vector2 victorySize = _font.MeasureString(victoryText);
-            Vector2 victoryPos = new Vector2((GameConstants.ScreenWidth - victorySize.X) / 2, yPos);
-
-            // Outer glow
-            for (int r = 8; r > 0; r -= 2)
-            {
-                float alpha = (1f - (r / 8f)) * 0.3f * glowIntensity;
-                for (int angle = 0; angle < 360; angle += 30)
-                {
-                    float rad = angle * (float)Math.PI / 180f;
-                    Vector2 offset = new Vector2((float)Math.Cos(rad) * r, (float)Math.Sin(rad) * r);
-                    _spriteBatch.DrawString(_font, victoryText, victoryPos + offset, glowColor * alpha);
-                }
-            }
-
-            // Shadow
-            for (int ox = -3; ox <= 3; ox++)
-            {
-                for (int oy = -3; oy <= 3; oy++)
-                {
-                    if (ox != 0 || oy != 0)
-                    {
-                        _spriteBatch.DrawString(_font, victoryText, victoryPos + new Vector2(ox, oy), Color.DarkGoldenrod);
-                    }
-                }
-            }
-            _spriteBatch.DrawString(_font, victoryText, victoryPos, Color.Gold);
-            yPos += 60;
-
-            // Chicken Dinner!
-            Vector2 chickenSize = _font.MeasureString(chickenText);
-            Vector2 chickenPos = new Vector2((GameConstants.ScreenWidth - chickenSize.X) / 2, yPos);
-
-            // Outer glow
-            for (int r = 8; r > 0; r -= 2)
-            {
-                float alpha = (1f - (r / 8f)) * 0.3f * glowIntensity;
-                for (int angle = 0; angle < 360; angle += 30)
-                {
-                    float rad = angle * (float)Math.PI / 180f;
-                    Vector2 offset = new Vector2((float)Math.Cos(rad) * r, (float)Math.Sin(rad) * r);
-                    _spriteBatch.DrawString(_font, chickenText, chickenPos + offset, glowColor * alpha);
-                }
-            }
-
-            // Shadow
-            for (int ox = -3; ox <= 3; ox++)
-            {
-                for (int oy = -3; oy <= 3; oy++)
-                {
-                    if (ox != 0 || oy != 0)
-                    {
-                        _spriteBatch.DrawString(_font, chickenText, chickenPos + new Vector2(ox, oy), Color.DarkGoldenrod);
-                    }
-                }
-            }
-            _spriteBatch.DrawString(_font, chickenText, chickenPos, Color.Gold);
-            yPos += 80;
-
-            // Completion message
-            string completionText = "All 10 Levels Completed!";
-            Vector2 completionSize = _font.MeasureString(completionText);
-            _spriteBatch.DrawString(_font, completionText, new Vector2((GameConstants.ScreenWidth - completionSize.X) / 2, yPos), Color.LightGreen);
-            yPos += 50;
-
-            // Score and Time
-            string scoreText = $"Final Score: {_scoreService.Score}";
-            string timeText = $"Total Time: {_scoreService.GetFormattedTime()}";
-            Vector2 scoreSize = _font.MeasureString(scoreText);
-            Vector2 timeSize = _font.MeasureString(timeText);
-            _spriteBatch.DrawString(_font, scoreText, new Vector2((GameConstants.ScreenWidth - scoreSize.X) / 2, yPos), Color.White);
-            yPos += 30;
-            _spriteBatch.DrawString(_font, timeText, new Vector2((GameConstants.ScreenWidth - timeSize.X) / 2, yPos), Color.White);
-            yPos += 50;
-
-            // Statistics
-            string statsTitle = "=== FINANCIAL REPORT ===";
-            Vector2 statsTitleSize = _font.MeasureString(statsTitle);
-            _spriteBatch.DrawString(_font, statsTitle, new Vector2((GameConstants.ScreenWidth - statsTitleSize.X) / 2, yPos), Color.Cyan);
-            yPos += 35;
-
-            string earnedText = $"Total Earned: ${_shopService.TotalEarned}";
-            string spentText = $"Total Spent: ${_shopService.TotalSpent}";
-            string profitText = $"Net Profit: ${_shopService.TotalEarned - _shopService.TotalSpent}";
-            
-            Vector2 earnedSize = _font.MeasureString(earnedText);
-            Vector2 spentSize = _font.MeasureString(spentText);
-            Vector2 profitSize = _font.MeasureString(profitText);
-            
-            _spriteBatch.DrawString(_font, earnedText, new Vector2((GameConstants.ScreenWidth - earnedSize.X) / 2, yPos), Color.LightGreen);
-            yPos += 30;
-            _spriteBatch.DrawString(_font, spentText, new Vector2((GameConstants.ScreenWidth - spentSize.X) / 2, yPos), Color.LightCoral);
-            yPos += 30;
-            
-            Color profitColor = (_shopService.TotalEarned - _shopService.TotalSpent) >= 0 ? Color.Gold : Color.Red;
-            
-            // Profit with glow if positive
-            if ((_shopService.TotalEarned - _shopService.TotalSpent) >= 0)
-            {
-                for (int ox = -1; ox <= 1; ox++)
-                {
-                    for (int oy = -1; oy <= 1; oy++)
-                    {
-                        if (ox != 0 || oy != 0)
-                        {
-                            _spriteBatch.DrawString(_font, profitText, new Vector2((GameConstants.ScreenWidth - profitSize.X) / 2 + ox, yPos + oy), Color.DarkGoldenrod * glowIntensity);
-                        }
-                    }
-                }
-            }
-            _spriteBatch.DrawString(_font, profitText, new Vector2((GameConstants.ScreenWidth - profitSize.X) / 2, yPos), profitColor);
-
-            // Buttons
-            Color retryColor = _victoryRetryButtonHovered ? Color.LightGreen : Color.Green;
-            _spriteBatch.Draw(_whitePixel, _victoryRetryButton, retryColor);
-            string retryText = "PLAY AGAIN";
-            Vector2 retryTextSize = _font.MeasureString(retryText);
-            _spriteBatch.DrawString(_font, retryText, new Vector2(_victoryRetryButton.X + (_victoryRetryButton.Width - retryTextSize.X) / 2, _victoryRetryButton.Y + (_victoryRetryButton.Height - retryTextSize.Y) / 2), Color.Black);
-
-            Color quitColor = _victoryQuitButtonHovered ? Color.LightCoral : Color.DarkRed;
-            _spriteBatch.Draw(_whitePixel, _victoryQuitButton, quitColor);
-            string quitText = "QUIT";
-            Vector2 quitTextSize = _font.MeasureString(quitText);
-            _spriteBatch.DrawString(_font, quitText, new Vector2(_victoryQuitButton.X + (_victoryQuitButton.Width - quitTextSize.X) / 2, _victoryQuitButton.Y + (_victoryQuitButton.Height - quitTextSize.Y) / 2), Color.White);
+            if (_dialogRenderer == null) return;
+            _dialogRenderer.DrawVictory(_uiManager, _scoreService, _shopService, DrawPixelBox, DrawPixelButton);
         }
 
         private void DrawLevelComplete()
         {
-            if (_font == null || _whitePixel == null) return;
-
-            _spriteBatch.Draw(_whitePixel, new Rectangle(0, 0, GameConstants.ScreenWidth, GameConstants.ScreenHeight), Color.Black * 0.7f);
-
-            const int ROW_HEIGHT = 50;
-            const int START_Y = 40;
-            int currentRow = 0;
-
-            // Title
-            string title = "DONE!";
-            Vector2 titleSize = _font.MeasureString(title);
-            Vector2 titlePos = new Vector2((GameConstants.ScreenWidth - titleSize.X) / 2, START_Y + currentRow * ROW_HEIGHT);
-
-            for (int ox = -2; ox <= 2; ox++)
-            {
-                for (int oy = -2; oy <= 2; oy++)
-                {
-                    if (ox != 0 || oy != 0)
-                    {
-                        _spriteBatch.DrawString(_font, title, titlePos + new Vector2(ox, oy), Color.DarkGreen);
-                    }
-                }
-            }
-            _spriteBatch.DrawString(_font, title, titlePos, Color.LightGreen);
-            currentRow++;
-
-            // Time bonus calculation
-            string calc = $"Time Bonus: $100 - {(int)_scoreService.GameTimer}s = ${_levelCompleteTimeBonus}";
-            Vector2 calcSize = _font.MeasureString(calc);
-            _spriteBatch.DrawString(_font, calc, new Vector2((GameConstants.ScreenWidth - calcSize.X) / 2, START_Y + currentRow * ROW_HEIGHT), Color.Yellow);
-            currentRow++;
-
-            // Counting animation
-            if (!_moneyAnimationDone)
-            {
-                string counting = $"Counting... ${_animatedMoney}";
-                Vector2 countingSize = _font.MeasureString(counting);
-                _spriteBatch.DrawString(_font, counting, new Vector2((GameConstants.ScreenWidth - countingSize.X) / 2, START_Y + currentRow * ROW_HEIGHT), Color.Gray);
-            }
-            currentRow++;
-
-            // Final balance
-            if (_moneyAnimationDone)
-            {
-                string balance = $"${_shopService.BankBalance}";
-                Vector2 balanceSize = _font.MeasureString(balance);
-                Vector2 balancePos = new Vector2((GameConstants.ScreenWidth - balanceSize.X * _slamScale) / 2 + _balanceShake, START_Y + currentRow * ROW_HEIGHT + _slamY);
-
-                float glowIntensity = (float)Math.Sin(_glowPulse) * 0.15f + 0.2f;
-                for (int ox = -2; ox <= 2; ox++)
-                {
-                    for (int oy = -2; oy <= 2; oy++)
-                    {
-                        if (ox != 0 || oy != 0)
-                        {
-                            float distance = (float)Math.Sqrt(ox * ox + oy * oy);
-                            if (distance <= 2f)
-                            {
-                                _spriteBatch.DrawString(_font, balance, balancePos + new Vector2(ox, oy), Color.Gold * (glowIntensity / distance), 0f, Vector2.Zero, _slamScale, SpriteEffects.None, 0f);
-                            }
-                        }
-                    }
-                }
-                _spriteBatch.DrawString(_font, balance, balancePos, Color.Gold, 0f, Vector2.Zero, _slamScale, SpriteEffects.None, 0f);
-
-                // Purchase animation
-                if (_purchaseAnimationActive && _purchaseAnimationTimer < 0.5f)
-                {
-                    string costText = $"-${_purchaseCostAmount}";
-                    Vector2 costPos = new Vector2(_purchaseCostX, _purchaseCostY);
-
-                    float trailAlpha = 1f - (_purchaseAnimationTimer / 0.5f);
-                    for (int i = 1; i <= 3; i++)
-                    {
-                        _spriteBatch.DrawString(_font, costText, costPos + new Vector2(-i * 15, 0), Color.Red * (trailAlpha * 0.3f));
-                    }
-
-                    for (int ox = -2; ox <= 2; ox++)
-                    {
-                        for (int oy = -2; oy <= 2; oy++)
-                        {
-                            if (ox != 0 || oy != 0)
-                            {
-                                _spriteBatch.DrawString(_font, costText, costPos + new Vector2(ox, oy), Color.DarkRed * 0.7f);
-                            }
-                        }
-                    }
-                    _spriteBatch.DrawString(_font, costText, costPos, Color.Red);
-                }
-            }
-            currentRow += 2;
-
-            // Shop
-            if (_moneyAnimationDone && _slamAnimationDone)
-            {
-                string shopTitle = "=== SHOP ===";
-                Vector2 shopTitleSize = _font.MeasureString(shopTitle);
-                _spriteBatch.DrawString(_font, shopTitle, new Vector2((GameConstants.ScreenWidth - shopTitleSize.X) / 2, START_Y + currentRow * ROW_HEIGHT), Color.Cyan);
-
-                // Shop border
-                int shopBoxX = GameConstants.ScreenWidth / 2 - 130;
-                int shopBoxY = START_Y + currentRow * ROW_HEIGHT - 5;
-                int shopBoxWidth = 260;
-                int shopBoxHeight = 205;
-
-                _spriteBatch.Draw(_whitePixel, new Rectangle(shopBoxX, shopBoxY, shopBoxWidth, 3), Color.Cyan);
-                _spriteBatch.Draw(_whitePixel, new Rectangle(shopBoxX, shopBoxY + shopBoxHeight - 3, shopBoxWidth, 3), Color.Cyan);
-                _spriteBatch.Draw(_whitePixel, new Rectangle(shopBoxX, shopBoxY, 3, shopBoxHeight), Color.Cyan);
-                _spriteBatch.Draw(_whitePixel, new Rectangle(shopBoxX + shopBoxWidth - 3, shopBoxY, 3, shopBoxHeight), Color.Cyan);
-
-                // Shop buttons
-                string[] shopTexts = { "+3% Speed $25", "Extra Ball $5", "Shoot 6s $15" };
-
-                for (int i = 0; i < 3; i++)
-                {
-                    bool canAfford = (i == 0 && _shopService.CanAfford(ShopItem.SpeedUpgrade)) ||
-                                    (i == 1 && _shopService.CanAfford(ShopItem.ExtraBall)) ||
-                                    (i == 2 && _shopService.CanAfford(ShopItem.ShootMode));
-
-                    Color buttonColor = _shopButtonsHovered[i] && canAfford ? Color.LightBlue : (canAfford ? Color.Blue : Color.DarkGray);
-                    _spriteBatch.Draw(_whitePixel, _shopButtons[i], buttonColor);
-
-                    Vector2 textSize = _font.MeasureString(shopTexts[i]);
-                    Vector2 textPos = new Vector2(
-                        _shopButtons[i].X + (_shopButtons[i].Width - textSize.X) / 2,
-                        _shopButtons[i].Y + (_shopButtons[i].Height - textSize.Y) / 2
-                    );
-                    _spriteBatch.DrawString(_font, shopTexts[i], textPos, canAfford ? Color.White : Color.Gray);
-                }
-
-                // Next level button
-                Color nextColor = _nextLevelButtonHovered ? Color.LightGreen : Color.Green;
-                _spriteBatch.Draw(_whitePixel, _nextLevelButton, nextColor);
-                string nextText = "NEXT LEVEL";
-                Vector2 nextTextSize = _font.MeasureString(nextText);
-                Vector2 nextTextPos = new Vector2(
-                    _nextLevelButton.X + (_nextLevelButton.Width - nextTextSize.X) / 2,
-                    _nextLevelButton.Y + (_nextLevelButton.Height - nextTextSize.Y) / 2
-                );
-                _spriteBatch.DrawString(_font, nextText, nextTextPos, Color.Black);
-            }
+            if (_dialogRenderer == null) return;
+            _dialogRenderer.DrawLevelComplete(_uiManager, _scoreService, _shopService, _currentShopItems, DrawPixelBox, DrawPixelButton);
         }
+
+        #endregion
     }
 }

@@ -13,13 +13,18 @@ namespace AlleywayMonoGame.Entities
         
         private readonly int _baseSpeed;
         private readonly int _screenWidth;
+        private int _baseWidth;
+        public bool IsEnlarged { get; set; }
+        public float PermanentSizeMultiplier { get; private set; } = 1.0f;
 
         public Paddle(int x, int y, int width, int height, int baseSpeed, int screenWidth)
         {
             Bounds = new Rectangle(x, y, width, height);
             _baseSpeed = baseSpeed;
             _screenWidth = screenWidth;
+            _baseWidth = width;
             Velocity = Vector2.Zero;
+            IsEnlarged = false;
         }
 
         public int X
@@ -55,6 +60,48 @@ namespace AlleywayMonoGame.Entities
             int newX = Bounds.X + (int)(Velocity.X * deltaTime);
             newX = Math.Max(0, Math.Min(newX, _screenWidth - Bounds.Width));
             X = newX;
+        }
+
+        public void Enlarge()
+        {
+            if (!IsEnlarged)
+            {
+                int centerX = Bounds.Center.X;
+                int newWidth = _baseWidth * 2;
+                Bounds = new Rectangle(centerX - newWidth / 2, Bounds.Y, newWidth, Bounds.Height);
+                IsEnlarged = true;
+            }
+        }
+
+        public void Shrink()
+        {
+            if (IsEnlarged)
+            {
+                int centerX = Bounds.Center.X;
+                Bounds = new Rectangle(centerX - _baseWidth / 2, Bounds.Y, _baseWidth, Bounds.Height);
+                IsEnlarged = false;
+            }
+        }
+
+        public void ApplyPermanentSizeIncrease(float multiplier)
+        {
+            PermanentSizeMultiplier = multiplier;
+            int centerX = Bounds.Center.X;
+            int newBaseWidth = (int)(_baseWidth / (PermanentSizeMultiplier - 0.04f) * PermanentSizeMultiplier);
+            
+            // Update both base width and current bounds
+            _baseWidth = newBaseWidth;
+            
+            if (IsEnlarged)
+            {
+                // If enlarged, keep it at 2x the new base width
+                Bounds = new Rectangle(centerX - (_baseWidth * 2) / 2, Bounds.Y, _baseWidth * 2, Bounds.Height);
+            }
+            else
+            {
+                // Normal size
+                Bounds = new Rectangle(centerX - _baseWidth / 2, Bounds.Y, _baseWidth, Bounds.Height);
+            }
         }
     }
 }

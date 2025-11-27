@@ -17,6 +17,10 @@ namespace AlleywayMonoGame.Services
         public SoundEffect? ProjectileExplosionSound { get; private set; }
         public SoundEffect? CashRegisterSound { get; private set; }
         public SoundEffect? ChargeUpSound { get; private set; }
+        public SoundEffect? PowerUpSound { get; private set; }
+        public SoundEffect? GameOverSound { get; private set; }
+        public SoundEffect? LevelCompleteSound { get; private set; }
+        public SoundEffect? VictorySound { get; private set; }
 
         public AudioService()
         {
@@ -34,6 +38,10 @@ namespace AlleywayMonoGame.Services
                 ProjectileExplosionSound = CreateProjectileExplosionSound();
                 CashRegisterSound = CreateCashRegisterSound();
                 ChargeUpSound = CreateChargeUpSound();
+                PowerUpSound = CreatePowerUpSound();
+                GameOverSound = CreateGameOverSound();
+                LevelCompleteSound = CreateLevelCompleteSound();
+                VictorySound = CreateVictorySound();
             }
             catch
             {
@@ -47,6 +55,10 @@ namespace AlleywayMonoGame.Services
         public void PlayProjectileExplosion() => ProjectileExplosionSound?.Play();
         public void PlayCashRegister() => CashRegisterSound?.Play();
         public void PlayChargeUp() => ChargeUpSound?.Play();
+        public void PlayPowerUp() => PowerUpSound?.Play();
+        public void PlayGameOver() => GameOverSound?.Play();
+        public void PlayLevelComplete() => LevelCompleteSound?.Play();
+        public void PlayVictory() => VictorySound?.Play();
 
         private SoundEffect CreateExplosionSoundEffect(int frequency, float durationSeconds, float volume)
         {
@@ -229,6 +241,284 @@ namespace AlleywayMonoGame.Services
                 double noise = (_random.NextDouble() - 0.5) * 0.2 * clickEnv;
                 
                 double mixed = paper1 + paper2 + paper3 + noise;
+                
+                short sample = (short)(amplitude * mixed);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreatePowerUpSound()
+        {
+            const int sampleRate = 44100;
+            float durationSeconds = 0.6f;
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            WriteWavHeader(bw, samples);
+
+            double amplitude = 32760 * 0.6f;
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Aufsteigende Tonleiter wie bei Mario Power-Up
+                // C, E, G, C (höher) - Dur-Akkord
+                double[] frequencies = { 523.25, 659.25, 783.99, 1046.50 }; // C5, E5, G5, C6
+                int noteIndex = (int)(progress * 4);
+                if (noteIndex >= 4) noteIndex = 3;
+                
+                double frequency = frequencies[noteIndex];
+                
+                // Envelope für jeden Ton
+                double noteProgress = (progress * 4) % 1.0;
+                double env = Math.Exp(-3.0 * noteProgress);
+                
+                // Hauptton mit leichter Obertonreihe für reicheren Klang
+                double tone1 = Math.Sin(2.0 * Math.PI * frequency * t) * 0.6;
+                double tone2 = Math.Sin(2.0 * Math.PI * frequency * 2 * t) * 0.3; // Oktave
+                double tone3 = Math.Sin(2.0 * Math.PI * frequency * 3 * t) * 0.1; // Quinte
+                
+                double mixed = (tone1 + tone2 + tone3) * env;
+                
+                short sample = (short)(amplitude * mixed);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreateGameOverSound()
+        {
+            const int sampleRate = 44100;
+            float durationSeconds = 1.2f;
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            WriteWavHeader(bw, samples);
+
+            double amplitude = 32760 * 0.7f;
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Retro Game Over: Absteigende Tonfolge wie klassische Arcade-Spiele
+                // E, D, C, G (tief) - trauriger, absteigender Sound
+                double[] frequencies = { 659.25, 587.33, 523.25, 392.00 }; // E5, D5, C5, G4
+                double[] noteDurations = { 0.25, 0.25, 0.25, 0.25 };
+                
+                // Welche Note spielen wir?
+                int noteIndex = 0;
+                double cumTime = 0;
+                for (int n = 0; n < frequencies.Length; n++)
+                {
+                    if (progress >= cumTime && progress < cumTime + noteDurations[n])
+                    {
+                        noteIndex = n;
+                        break;
+                    }
+                    cumTime += noteDurations[n];
+                }
+                
+                double frequency = frequencies[noteIndex];
+                
+                // Envelope für jeden Ton mit langsamem Decay
+                double noteStartTime = 0;
+                for (int n = 0; n < noteIndex; n++)
+                {
+                    noteStartTime += noteDurations[n];
+                }
+                double noteProgress = (progress - noteStartTime) / noteDurations[noteIndex];
+                double env = Math.Exp(-2.5 * noteProgress);
+                
+                // Retro-Sound: Rechteckwelle für klassischen 8-bit Charakter
+                double squareWave = Math.Sign(Math.Sin(2.0 * Math.PI * frequency * t));
+                
+                // Leichte Sinus-Komponente für weniger harsch
+                double sineWave = Math.Sin(2.0 * Math.PI * frequency * t);
+                
+                // Mix: Mehr Rechteck für Retro-Feeling
+                double mixed = (squareWave * 0.7 + sineWave * 0.3) * env;
+                
+                // Fade out am Ende
+                if (progress > 0.85)
+                {
+                    mixed *= 1.0 - ((progress - 0.85) / 0.15);
+                }
+                
+                short sample = (short)(amplitude * mixed);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreateLevelCompleteSound()
+        {
+            const int sampleRate = 44100;
+            float durationSeconds = 0.8f;
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            WriteWavHeader(bw, samples);
+
+            double amplitude = 32760 * 0.65f;
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Fröhliche aufsteigende Tonfolge: C, E, G, C (höher)
+                double[] frequencies = { 523.25, 659.25, 783.99, 1046.50 }; // C5, E5, G5, C6
+                double[] noteDurations = { 0.15, 0.15, 0.15, 0.35 }; // Letzter Ton länger
+                
+                // Welche Note?
+                int noteIndex = 0;
+                double cumTime = 0;
+                for (int n = 0; n < frequencies.Length; n++)
+                {
+                    if (progress >= cumTime && progress < cumTime + noteDurations[n])
+                    {
+                        noteIndex = n;
+                        break;
+                    }
+                    cumTime += noteDurations[n];
+                }
+                
+                double frequency = frequencies[noteIndex];
+                
+                // Note Progress berechnen
+                double noteStartTime = 0;
+                for (int n = 0; n < noteIndex; n++)
+                {
+                    noteStartTime += noteDurations[n];
+                }
+                double noteProgress = (progress - noteStartTime) / noteDurations[noteIndex];
+                
+                // Envelope: Schneller Attack, dann Sustain, dann Decay
+                double env;
+                if (noteIndex < 3) // Erste 3 Töne: kurz und knackig
+                {
+                    env = Math.Exp(-4.0 * noteProgress);
+                }
+                else // Letzter Ton: länger mit Sustain
+                {
+                    env = noteProgress < 0.1 ? noteProgress / 0.1 :
+                          noteProgress < 0.6 ? 1.0 :
+                          1.0 - ((noteProgress - 0.6) / 0.4);
+                }
+                
+                // Retro-Sound: Mix aus Rechteck und Sinus
+                double squareWave = Math.Sign(Math.Sin(2.0 * Math.PI * frequency * t));
+                double sineWave = Math.Sin(2.0 * Math.PI * frequency * t);
+                
+                double mixed = (squareWave * 0.6 + sineWave * 0.4) * env;
+                
+                short sample = (short)(amplitude * mixed);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreateVictorySound()
+        {
+            const int sampleRate = 44100;
+            float durationSeconds = 2.0f;
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            WriteWavHeader(bw, samples);
+
+            double amplitude = 32760 * 0.7f;
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Epische Siegesmelodie: C, E, G, C, G, C (höher und höher)
+                // Klassische "Fanfare"-Struktur
+                double[] frequencies = { 
+                    523.25,  // C5
+                    659.25,  // E5
+                    783.99,  // G5
+                    1046.50, // C6
+                    1567.98, // G6
+                    2093.00  // C7
+                };
+                double[] noteDurations = { 0.2, 0.2, 0.2, 0.3, 0.3, 0.6 };
+                
+                // Welche Note?
+                int noteIndex = 0;
+                double cumTime = 0;
+                for (int n = 0; n < frequencies.Length; n++)
+                {
+                    if (progress >= cumTime && progress < cumTime + noteDurations[n])
+                    {
+                        noteIndex = n;
+                        break;
+                    }
+                    cumTime += noteDurations[n];
+                }
+                if (noteIndex >= frequencies.Length) noteIndex = frequencies.Length - 1;
+                
+                double frequency = frequencies[noteIndex];
+                
+                // Note Progress
+                double noteStartTime = 0;
+                for (int n = 0; n < noteIndex; n++)
+                {
+                    noteStartTime += noteDurations[n];
+                }
+                double noteProgress = (progress - noteStartTime) / noteDurations[noteIndex];
+                
+                // Envelope: Unterschiedlich für verschiedene Noten
+                double env;
+                if (noteIndex < 5) // Erste Noten: Attack-Decay
+                {
+                    env = noteProgress < 0.05 ? noteProgress / 0.05 : Math.Exp(-3.0 * (noteProgress - 0.05));
+                }
+                else // Finale Note: Lang und triumphierend
+                {
+                    env = noteProgress < 0.05 ? noteProgress / 0.05 :
+                          noteProgress < 0.7 ? 1.0 :
+                          1.0 - ((noteProgress - 0.7) / 0.3);
+                }
+                
+                // Reicherer Sound: Hauptton + Harmonische
+                double tone1 = Math.Sin(2.0 * Math.PI * frequency * t) * 0.5;
+                double tone2 = Math.Sin(2.0 * Math.PI * frequency * 2 * t) * 0.25; // Oktave
+                double tone3 = Math.Sin(2.0 * Math.PI * frequency * 3 * t) * 0.15; // Quinte
+                double squareWave = Math.Sign(Math.Sin(2.0 * Math.PI * frequency * t)) * 0.1; // Leichte Retro-Note
+                
+                double mixed = (tone1 + tone2 + tone3 + squareWave) * env;
                 
                 short sample = (short)(amplitude * mixed);
                 bw.Write(sample);

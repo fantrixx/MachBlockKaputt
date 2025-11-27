@@ -124,34 +124,21 @@ namespace AlleywayMonoGame.Systems
 
         private void AssignSpecialBricks(LevelData data)
         {
-            int shootCount = Math.Max(1, (data.Bricks.Count * 40) / 100);
-            int extraBallCount = Math.Max(1, (data.Bricks.Count * 40) / 100);
+            if (data.Bricks.Count == 0) return;
+            
+            int specialCount = 3; // 3 special bricks per level
             
             HashSet<int> usedIndices = new HashSet<int>();
             
-            // Assign shoot power bricks
+            // Assign special bricks
             int attempts = 0;
-            while (data.ShootPowerIndices.Count < shootCount && attempts < shootCount * 3)
+            while (data.SpecialIndices.Count < specialCount && attempts < specialCount * 3)
             {
                 int randomIndex = _random.Next(data.Bricks.Count);
                 if (!usedIndices.Contains(randomIndex))
                 {
-                    data.ShootPowerIndices.Add(randomIndex);
-                    data.Bricks[randomIndex].Type = BrickType.ShootPowerUp;
-                    usedIndices.Add(randomIndex);
-                }
-                attempts++;
-            }
-            
-            // Assign extra ball bricks
-            attempts = 0;
-            while (data.ExtraBallIndices.Count < extraBallCount && attempts < extraBallCount * 3)
-            {
-                int randomIndex = _random.Next(data.Bricks.Count);
-                if (!usedIndices.Contains(randomIndex))
-                {
-                    data.ExtraBallIndices.Add(randomIndex);
-                    data.Bricks[randomIndex].Type = BrickType.ExtraBall;
+                    data.SpecialIndices.Add(randomIndex);
+                    data.Bricks[randomIndex].Type = BrickType.Special;
                     usedIndices.Add(randomIndex);
                 }
                 attempts++;
@@ -162,7 +149,6 @@ namespace AlleywayMonoGame.Systems
     public class LevelData
     {
         public List<Brick> Bricks { get; } = new List<Brick>();
-        public List<int> ShootPowerIndices { get; } = new List<int>();
-        public List<int> ExtraBallIndices { get; } = new List<int>();
+        public List<int> SpecialIndices { get; } = new List<int>();
     }
 }
