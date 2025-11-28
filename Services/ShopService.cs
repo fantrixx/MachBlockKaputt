@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using AlleywayMonoGame.Core;
 
 namespace AlleywayMonoGame.Services
 {
@@ -171,7 +172,7 @@ namespace AlleywayMonoGame.Services
             return Math.Max(0, 100 - (int)gameTime);
         }
 
-        public ShopItem[] GetRandomShopItems(int count = 3)
+        public ShopItem[] GetRandomShopItems(int count = GameConstants.MaxShopItems)
         {
             var allItems = new List<ShopItem>
             {

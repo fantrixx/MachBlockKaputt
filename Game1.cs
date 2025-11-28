@@ -440,7 +440,7 @@ namespace AlleywayMonoGame
             {
                 if (_shopService.Reroll())
                 {
-                    _currentShopItems = _shopService.GetRandomShopItems(3);
+                    _currentShopItems = _shopService.GetRandomShopItems(GameConstants.MaxShopItems);
                     _audioService.PlayPowerUp(); // Reroll sound effect
                 }
             }
@@ -1032,7 +1032,7 @@ namespace AlleywayMonoGame
         private void SetupShopUI()
         {
             // Generate random shop items
-            _currentShopItems = _shopService.GetRandomShopItems(3);
+            _currentShopItems = _shopService.GetRandomShopItems(GameConstants.MaxShopItems);
             
             // Shop Box dimensions (must match DrawLevelComplete)
             int shopBoxWidth = 420;
@@ -1044,7 +1044,7 @@ namespace AlleywayMonoGame
             int buttonX = shopBoxX + (shopBoxWidth - buttonWidth) / 2;
             int buttonSpacing = 10;
             
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < GameConstants.MaxShopItems; i++)
             {
                 _uiManager.ShopButtons[i] = new Rectangle(
                     buttonX,

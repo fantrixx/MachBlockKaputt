@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using AlleywayMonoGame.Core;
 
 namespace AlleywayMonoGame.Managers
 {
@@ -32,11 +33,11 @@ namespace AlleywayMonoGame.Managers
         public float PurchaseAnimationTimer { get; set; }
         public float BalanceShake { get; set; }
         
-        // UI Buttons - Level Complete
+        // UI Buttons - Level Complete (dynamically sized based on MaxShopItems)
         public Rectangle NextLevelButton { get; set; }
         public bool NextLevelButtonHovered { get; set; }
-        public Rectangle[] ShopButtons { get; } = new Rectangle[3];
-        public bool[] ShopButtonsHovered { get; } = new bool[3];
+        public Rectangle[] ShopButtons { get; } = new Rectangle[GameConstants.MaxShopItems];
+        public bool[] ShopButtonsHovered { get; } = new bool[GameConstants.MaxShopItems];
         public Rectangle RerollButton { get; set; }
         public bool RerollButtonHovered { get; set; }
         public int HoveredShopItem { get; set; } = -1;
@@ -77,7 +78,7 @@ namespace AlleywayMonoGame.Managers
 
             // Level complete buttons
             HoveredShopItem = -1;
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < GameConstants.MaxShopItems; i++)
             {
                 ShopButtonsHovered[i] = ShopButtons[i].Contains(mousePos);
                 if (ShopButtonsHovered[i])

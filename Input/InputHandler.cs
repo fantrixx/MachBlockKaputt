@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Input;
 using AlleywayMonoGame.Entities;
 using AlleywayMonoGame.Models;
 using AlleywayMonoGame.Managers;
+using AlleywayMonoGame.Core;
 using System.Collections.Generic;
 
 namespace AlleywayMonoGame.Input
@@ -90,7 +91,7 @@ namespace AlleywayMonoGame.Input
             Point mousePos = new Point(mouseState.X, mouseState.Y);
 
             // Update hover states
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < GameConstants.MaxShopItems; i++)
             {
                 uiManager.ShopButtonsHovered[i] = uiManager.ShopButtons[i].Contains(mousePos);
             }
@@ -100,7 +101,7 @@ namespace AlleywayMonoGame.Input
             // Check for clicks (only on button press, not hold)
             if (mouseState.LeftButton == ButtonState.Pressed && _previousMouseState.LeftButton == ButtonState.Released && !purchaseAnimationActive && moneyAnimationDone)
             {
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < GameConstants.MaxShopItems; i++)
                 {
                     if (uiManager.ShopButtonsHovered[i])
                     {

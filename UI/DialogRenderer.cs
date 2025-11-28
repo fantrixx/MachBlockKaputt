@@ -29,22 +29,22 @@ namespace AlleywayMonoGame.UI
             Action<Rectangle, bool, string, Color, Color> drawPixelButton)
         {
             // Dunkler Overlay
-            _spriteBatch.Draw(_whitePixel, new Rectangle(0, 0, GameConstants.ScreenWidth, GameConstants.ScreenHeight), Color.Black * 0.85f);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(0, 0, GameConstants.ScreenWidth, GameConstants.ScreenHeight), Color.Black * UIConstants.OverlayOpacityMedium);
 
             // Pixel-Art Rahmen
-            int boxWidth = 400;
-            int boxHeight = 380;
+            int boxWidth = UIConstants.GameOverBoxWidth;
+            int boxHeight = UIConstants.GameOverBoxHeight;
             int boxX = (GameConstants.ScreenWidth - boxWidth) / 2;
-            int boxY = 100;
+            int boxY = UIConstants.GameOverBoxY;
 
             // Dunkler Hintergrund-Box
-            _spriteBatch.Draw(_whitePixel, new Rectangle(boxX, boxY, boxWidth, boxHeight), new Color(10, 10, 30));
+            _spriteBatch.Draw(_whitePixel, new Rectangle(boxX, boxY, boxWidth, boxHeight), UIConstants.DialogBackgroundDark);
 
             // Doppelter Pixel-Rahmen
-            drawPixelBox(boxX, boxY, boxWidth, boxHeight, new Color(150, 50, 50), 3);
-            drawPixelBox(boxX + 6, boxY + 6, boxWidth - 12, boxHeight - 12, new Color(200, 100, 100), 2);
+            drawPixelBox(boxX, boxY, boxWidth, boxHeight, UIConstants.BorderRed, UIConstants.BorderMedium);
+            drawPixelBox(boxX + UIConstants.BorderInnerOffset, boxY + UIConstants.BorderInnerOffset, boxWidth - UIConstants.BorderInnerWidth, boxHeight - UIConstants.BorderInnerWidth, UIConstants.BorderRedBright, UIConstants.BorderThin);
 
-            int yPos = boxY + 30;
+            int yPos = boxY + UIConstants.TextSectionSpacing;
 
             // Title - Pixel Style
             string gameOverText = "GAME OVER";
@@ -52,8 +52,8 @@ namespace AlleywayMonoGame.UI
             Vector2 titlePos = new Vector2((GameConstants.ScreenWidth - titleSize.X) / 2, yPos);
 
             // Blocky shadow
-            _spriteBatch.DrawString(_font, gameOverText, titlePos + new Vector2(3, 3), new Color(80, 0, 0));
-            _spriteBatch.DrawString(_font, gameOverText, titlePos, new Color(255, 100, 100));
+            _spriteBatch.DrawString(_font, gameOverText, titlePos + new Vector2(UIConstants.ShadowOffsetLarge, UIConstants.ShadowOffsetLarge), UIConstants.TextDarkShadow);
+            _spriteBatch.DrawString(_font, gameOverText, titlePos, UIConstants.TextRed);
             yPos += 50;
 
             // Score and Time
@@ -62,21 +62,21 @@ namespace AlleywayMonoGame.UI
             Vector2 scoreSize = _font.MeasureString(scoreText);
             Vector2 timeSize = _font.MeasureString(timeText);
             _spriteBatch.DrawString(_font, scoreText, new Vector2((GameConstants.ScreenWidth - scoreSize.X) / 2, yPos), Color.White);
-            yPos += 30;
+            yPos += UIConstants.TextSectionSpacing;
             _spriteBatch.DrawString(_font, timeText, new Vector2((GameConstants.ScreenWidth - timeSize.X) / 2, yPos), Color.White);
-            yPos += 40;
+            yPos += UIConstants.TextSmallSpacing;
 
             // Statistics - Pixel Box
-            int statsBoxWidth = 300;
+            int statsBoxWidth = UIConstants.GameOverStatsBoxWidth;
             int statsBoxX = (GameConstants.ScreenWidth - statsBoxWidth) / 2;
-            _spriteBatch.Draw(_whitePixel, new Rectangle(statsBoxX, yPos, statsBoxWidth, 110), new Color(20, 20, 40));
-            drawPixelBox(statsBoxX, yPos, statsBoxWidth, 110, new Color(100, 150, 200), 2);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(statsBoxX, yPos, statsBoxWidth, UIConstants.GameOverStatsBoxHeight), UIConstants.DialogBackgroundLight);
+            drawPixelBox(statsBoxX, yPos, statsBoxWidth, UIConstants.GameOverStatsBoxHeight, UIConstants.BorderBlue, UIConstants.BorderThin);
 
-            yPos += 10;
+            yPos += UIConstants.TooltipPadding;
             string statsTitle = "STATISTICS";
             Vector2 statsTitleSize = _font.MeasureString(statsTitle);
-            _spriteBatch.DrawString(_font, statsTitle, new Vector2((GameConstants.ScreenWidth - statsTitleSize.X) / 2, yPos), new Color(150, 200, 255));
-            yPos += 30;
+            _spriteBatch.DrawString(_font, statsTitle, new Vector2((GameConstants.ScreenWidth - statsTitleSize.X) / 2, yPos), UIConstants.TextBlue);
+            yPos += UIConstants.TextSectionSpacing;
 
             string earnedText = $"Earned: ${shopService.TotalEarned}";
             string spentText = $"Spent: ${shopService.TotalSpent}";
@@ -86,17 +86,17 @@ namespace AlleywayMonoGame.UI
             Vector2 spentSize = _font.MeasureString(spentText);
             Vector2 profitSize = _font.MeasureString(profitText);
 
-            _spriteBatch.DrawString(_font, earnedText, new Vector2((GameConstants.ScreenWidth - earnedSize.X) / 2, yPos), new Color(150, 255, 150));
-            yPos += 25;
-            _spriteBatch.DrawString(_font, spentText, new Vector2((GameConstants.ScreenWidth - spentSize.X) / 2, yPos), new Color(255, 150, 150));
-            yPos += 25;
+            _spriteBatch.DrawString(_font, earnedText, new Vector2((GameConstants.ScreenWidth - earnedSize.X) / 2, yPos), UIConstants.TextGreenEarned);
+            yPos += UIConstants.TextLineSpacing;
+            _spriteBatch.DrawString(_font, spentText, new Vector2((GameConstants.ScreenWidth - spentSize.X) / 2, yPos), UIConstants.TextRedSpent);
+            yPos += UIConstants.TextLineSpacing;
 
-            Color profitColor = (shopService.TotalEarned - shopService.TotalSpent) >= 0 ? new Color(255, 215, 0) : new Color(255, 100, 100);
+            Color profitColor = (shopService.TotalEarned - shopService.TotalSpent) >= 0 ? UIConstants.TextGold : UIConstants.TextRed;
             _spriteBatch.DrawString(_font, profitText, new Vector2((GameConstants.ScreenWidth - profitSize.X) / 2, yPos), profitColor);
 
             // Pixel-Art Buttons
-            drawPixelButton(uiManager.RetryButton, uiManager.RetryButtonHovered, "RETRY", new Color(100, 200, 100), new Color(50, 100, 50));
-            drawPixelButton(uiManager.QuitButton, uiManager.QuitButtonHovered, "QUIT", new Color(200, 100, 100), new Color(100, 50, 50));
+            drawPixelButton(uiManager.RetryButton, uiManager.RetryButtonHovered, "RETRY", UIConstants.ButtonGreenNormal, UIConstants.ButtonGreenDark);
+            drawPixelButton(uiManager.QuitButton, uiManager.QuitButtonHovered, "QUIT", UIConstants.ButtonRedNormal, UIConstants.ButtonRedDark);
         }
 
         public void DrawVictory(UIManager uiManager, ScoreService scoreService, ShopService shopService,

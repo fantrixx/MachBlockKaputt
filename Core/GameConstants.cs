@@ -40,6 +40,9 @@ namespace AlleywayMonoGame.Core
         public const int MaxLevel = 10;
         public const float LevelClearAutoStart = 2.0f;
         
+        // Shop constants
+        public const int MaxShopItems = 3; // Maximum number of items shown in shop
+        
         // UI Layout constants
         public const int ButtonWidth = 200;
         public const int ButtonHeight = 50;
