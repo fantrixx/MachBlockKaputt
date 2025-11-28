@@ -265,37 +265,48 @@ namespace AlleywayMonoGame.UI
                 for (int i = 0; i < 3; i++)
                 {
                     ShopItem item = currentShopItems[i];
-                    bool canAfford = shopService.CanAfford(item);
+                    bool isPurchased = shopService.IsPurchased(item);
+                    bool canAfford = !isPurchased && shopService.CanAfford(item);
                     Color itemColor = shopService.GetItemColor(item);
                     string itemText = $"{shopService.GetItemName(item)}";
-                    string costText = $"${shopService.GetCost(item)}";
+                    string costText = isPurchased ? "OWNED" : $"${shopService.GetCost(item)}";
 
                     int itemY = layout.ShopItemsStartY + i * (buttonHeight + buttonSpacing);
                     Rectangle shopButton = new Rectangle(buttonX, itemY, buttonWidth, buttonHeight);
                     uiManager.ShopButtons[i] = shopButton;
 
-                    // Button background with item color tint
-                    Color buttonNormal = canAfford ? Color.Lerp(new Color(50, 100, 200), itemColor, 0.3f) : new Color(60, 60, 80);
-                    Color buttonDark = canAfford ? Color.Lerp(new Color(30, 50, 100), itemColor, 0.2f) : new Color(40, 40, 50);
+                    // Button background with item color tint (grayed out if purchased)
+                    Color buttonNormal = isPurchased ? new Color(40, 40, 50) : 
+                                        (canAfford ? Color.Lerp(new Color(50, 100, 200), itemColor, 0.3f) : new Color(60, 60, 80));
+                    Color buttonDark = isPurchased ? new Color(30, 30, 40) :
+                                      (canAfford ? Color.Lerp(new Color(30, 50, 100), itemColor, 0.2f) : new Color(40, 40, 50));
 
-                    drawPixelButton(shopButton, uiManager.ShopButtonsHovered[i] && canAfford, "", buttonNormal, buttonDark);
+                    drawPixelButton(shopButton, uiManager.ShopButtonsHovered[i] && canAfford && !isPurchased, "", buttonNormal, buttonDark);
 
-                    // Pixel art icon
+                    // Pixel art icon (dimmed if purchased)
                     Vector2 iconPos = new Vector2(shopButton.X + 8, shopButton.Y + 10);
-                    ShopIconRenderer.DrawIcon(_spriteBatch, _whitePixel, item, iconPos, canAfford ? itemColor : new Color(120, 120, 120));
+                    Color iconColor = isPurchased ? new Color(80, 80, 90) : 
+                                     (canAfford ? itemColor : new Color(120, 120, 120));
+                    ShopIconRenderer.DrawIcon(_spriteBatch, _whitePixel, item, iconPos, iconColor);
 
-                    // Item name
+                    // Item name (dimmed if purchased)
                     Vector2 textSize = _font.MeasureString(itemText);
                     Vector2 textPos = new Vector2(shopButton.X + 35, shopButton.Y + (shopButton.Height - textSize.Y) / 2);
-                    Color textColor = canAfford ? Color.White : new Color(120, 120, 120);
+                    Color textColor = isPurchased ? new Color(100, 100, 110) :
+                                     (canAfford ? Color.White : new Color(120, 120, 120));
                     _spriteBatch.DrawString(_font, itemText, textPos + new Vector2(1, 1), Color.Black * 0.5f);
                     _spriteBatch.DrawString(_font, itemText, textPos, textColor);
 
-                    // Cost in corner
-                    if (canAfford)
+                    // Cost or OWNED in corner
+                    Vector2 costSize = _font.MeasureString(costText);
+                    Vector2 costPos = new Vector2(shopButton.Right - costSize.X - 8, shopButton.Y + (shopButton.Height - costSize.Y) / 2);
+                    if (isPurchased)
                     {
-                        Vector2 costSize = _font.MeasureString(costText);
-                        Vector2 costPos = new Vector2(shopButton.Right - costSize.X - 8, shopButton.Y + (shopButton.Height - costSize.Y) / 2);
+                        _spriteBatch.DrawString(_font, costText, costPos + new Vector2(1, 1), new Color(40, 40, 50));
+                        _spriteBatch.DrawString(_font, costText, costPos, new Color(120, 180, 120));
+                    }
+                    else if (canAfford)
+                    {
                         _spriteBatch.DrawString(_font, costText, costPos + new Vector2(1, 1), new Color(100, 80, 0));
                         _spriteBatch.DrawString(_font, costText, costPos, new Color(255, 215, 0));
                     }

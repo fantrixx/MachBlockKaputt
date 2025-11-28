@@ -12,15 +12,18 @@ namespace AlleywayMonoGame.Services
         public float PaddleSizeMultiplier { get; private set; } = 1.0f;
         public int ExtraBallsPurchased { get; private set; }
         public bool StartWithShootMode { get; set; }
+        public bool HasShield { get; set; }
         public int TotalEarned { get; private set; }
         public int TotalSpent { get; private set; }
         
         private readonly Random _random = new Random();
+        private readonly HashSet<ShopItem> _purchasedOneTimeItems = new HashSet<ShopItem>();
 
         private const int SpeedUpgradeCost = 25;
         private const int ExtraBallCost = 5;
         private const int ShootModeCost = 15;
         private const int PaddleSizeCost = 40;
+        private const int ShieldCost = 30;
         private const int RerollCost = 5;
         private const float SpeedUpgradeIncrement = 0.03f;
         private const float PaddleSizeIncrement = 0.04f;
@@ -33,14 +36,29 @@ namespace AlleywayMonoGame.Services
 
         public bool CanAfford(ShopItem item)
         {
+            // One-time items can't be purchased again
+            if (IsOneTimeItem(item) && _purchasedOneTimeItems.Contains(item))
+                return false;
+
             return item switch
             {
                 ShopItem.SpeedUpgrade => BankBalance >= SpeedUpgradeCost,
                 ShopItem.ExtraBall => BankBalance >= ExtraBallCost,
                 ShopItem.ShootMode => BankBalance >= ShootModeCost,
                 ShopItem.PaddleSize => BankBalance >= PaddleSizeCost,
+                ShopItem.Shield => BankBalance >= ShieldCost,
                 _ => false
             };
+        }
+
+        public bool IsOneTimeItem(ShopItem item)
+        {
+            return item == ShopItem.ShootMode || item == ShopItem.Shield;
+        }
+
+        public bool IsPurchased(ShopItem item)
+        {
+            return _purchasedOneTimeItems.Contains(item);
         }
 
         public bool CanAffordReroll()
@@ -81,12 +99,20 @@ namespace AlleywayMonoGame.Services
                     BankBalance -= ShootModeCost;
                     TotalSpent += ShootModeCost;
                     StartWithShootMode = true;
+                    _purchasedOneTimeItems.Add(ShopItem.ShootMode);
                     return true;
                     
                 case ShopItem.PaddleSize:
                     BankBalance -= PaddleSizeCost;
                     TotalSpent += PaddleSizeCost;
                     PaddleSizeMultiplier += PaddleSizeIncrement;
+                    return true;
+                    
+                case ShopItem.Shield:
+                    BankBalance -= ShieldCost;
+                    TotalSpent += ShieldCost;
+                    HasShield = true;
+                    _purchasedOneTimeItems.Add(ShopItem.Shield);
                     return true;
                     
                 default:
@@ -102,6 +128,7 @@ namespace AlleywayMonoGame.Services
                 ShopItem.ExtraBall => ExtraBallCost,
                 ShopItem.ShootMode => ShootModeCost,
                 ShopItem.PaddleSize => PaddleSizeCost,
+                ShopItem.Shield => ShieldCost,
                 _ => 0
             };
         }
@@ -128,12 +155,16 @@ namespace AlleywayMonoGame.Services
                 ShopItem.SpeedUpgrade,
                 ShopItem.ExtraBall,
                 ShopItem.ShootMode,
-                ShopItem.PaddleSize
+                ShopItem.PaddleSize,
+                ShopItem.Shield
             };
 
+            // Filter out already purchased one-time items
+            var availableItems = allItems.Where(item => !_purchasedOneTimeItems.Contains(item)).ToList();
+
             // Shuffle and take first 'count' items
-            var shuffled = allItems.OrderBy(x => _random.Next()).ToArray();
-            return shuffled.Take(Math.Min(count, allItems.Count)).ToArray();
+            var shuffled = availableItems.OrderBy(x => _random.Next()).ToArray();
+            return shuffled.Take(Math.Min(count, availableItems.Count)).ToArray();
         }
 
         public string GetItemName(ShopItem item)
@@ -144,6 +175,7 @@ namespace AlleywayMonoGame.Services
                 ShopItem.ExtraBall => "Extra Ball",
                 ShopItem.ShootMode => "Shoot 6s",
                 ShopItem.PaddleSize => "+4% Size",
+                ShopItem.Shield => "Shield",
                 _ => "Unknown"
             };
         }
@@ -156,6 +188,7 @@ namespace AlleywayMonoGame.Services
                 ShopItem.ExtraBall => "Adds one extra ball\nat level start",
                 ShopItem.ShootMode => "Start next level\nwith shoot mode active",
                 ShopItem.PaddleSize => "Increases paddle\nwidth by 4%",
+                ShopItem.Shield => "Protects you from\nlosing one life",
                 _ => "Unknown item"
             };
         }
@@ -180,6 +213,7 @@ namespace AlleywayMonoGame.Services
                 ShopItem.ExtraBall => new Color(255, 215, 0),       // Gold - Valuable
                 ShopItem.ShootMode => new Color(255, 100, 100),     // Red - Combat
                 ShopItem.PaddleSize => new Color(150, 255, 150),    // Green - Size
+                ShopItem.Shield => new Color(200, 150, 255),        // Purple - Protection
                 _ => Color.Gray
             };
         }
@@ -190,6 +224,7 @@ namespace AlleywayMonoGame.Services
         SpeedUpgrade,
         ExtraBall,
         ShootMode,
-        PaddleSize
+        PaddleSize,
+        Shield
     }
 }

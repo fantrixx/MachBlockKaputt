@@ -30,6 +30,9 @@ namespace AlleywayMonoGame.UI
                 case ShopItem.PaddleSize:
                     DrawPaddleSizeIcon(spriteBatch, whitePixel, position, color);
                     break;
+                case ShopItem.Shield:
+                    DrawShieldIcon(spriteBatch, whitePixel, position, color);
+                    break;
             }
         }
         
@@ -196,6 +199,76 @@ namespace AlleywayMonoGame.UI
             DrawPixel(spriteBatch, whitePixel, x + 14, y + 7, arrowColor);
             DrawPixel(spriteBatch, whitePixel, x + 13, y + 6, arrowColor);
             DrawPixel(spriteBatch, whitePixel, x + 13, y + 8, arrowColor);
+        }
+
+        /// <summary>
+        /// Shield icon - Medieval style shield with cross
+        /// </summary>
+        private static void DrawShieldIcon(SpriteBatch spriteBatch, Texture2D whitePixel, Vector2 pos, Color color)
+        {
+            int x = (int)pos.X;
+            int y = (int)pos.Y;
+            
+            // Shield outline
+            // Top
+            DrawPixel(spriteBatch, whitePixel, x + 6, y + 2, color);
+            DrawPixel(spriteBatch, whitePixel, x + 7, y + 2, color);
+            DrawPixel(spriteBatch, whitePixel, x + 8, y + 2, color);
+            
+            // Upper sides
+            DrawPixel(spriteBatch, whitePixel, x + 5, y + 3, color);
+            DrawPixel(spriteBatch, whitePixel, x + 9, y + 3, color);
+            DrawPixel(spriteBatch, whitePixel, x + 4, y + 4, color);
+            DrawPixel(spriteBatch, whitePixel, x + 10, y + 4, color);
+            
+            // Middle sides
+            DrawPixel(spriteBatch, whitePixel, x + 4, y + 5, color);
+            DrawPixel(spriteBatch, whitePixel, x + 10, y + 5, color);
+            DrawPixel(spriteBatch, whitePixel, x + 4, y + 6, color);
+            DrawPixel(spriteBatch, whitePixel, x + 10, y + 6, color);
+            DrawPixel(spriteBatch, whitePixel, x + 4, y + 7, color);
+            DrawPixel(spriteBatch, whitePixel, x + 10, y + 7, color);
+            DrawPixel(spriteBatch, whitePixel, x + 4, y + 8, color);
+            DrawPixel(spriteBatch, whitePixel, x + 10, y + 8, color);
+            
+            // Lower sides narrowing
+            DrawPixel(spriteBatch, whitePixel, x + 5, y + 9, color);
+            DrawPixel(spriteBatch, whitePixel, x + 9, y + 9, color);
+            DrawPixel(spriteBatch, whitePixel, x + 6, y + 10, color);
+            DrawPixel(spriteBatch, whitePixel, x + 8, y + 10, color);
+            
+            // Point
+            DrawPixel(spriteBatch, whitePixel, x + 7, y + 11, color);
+            
+            // Fill interior
+            for (int fy = 3; fy <= 8; fy++)
+            {
+                for (int fx = 5; fx <= 9; fx++)
+                {
+                    DrawPixel(spriteBatch, whitePixel, x + fx, y + fy, color);
+                }
+            }
+            DrawPixel(spriteBatch, whitePixel, x + 6, y + 2, color);
+            DrawPixel(spriteBatch, whitePixel, x + 7, y + 2, color);
+            DrawPixel(spriteBatch, whitePixel, x + 8, y + 2, color);
+            DrawPixel(spriteBatch, whitePixel, x + 6, y + 9, color);
+            DrawPixel(spriteBatch, whitePixel, x + 7, y + 9, color);
+            DrawPixel(spriteBatch, whitePixel, x + 8, y + 9, color);
+            DrawPixel(spriteBatch, whitePixel, x + 7, y + 10, color);
+            
+            // Cross decoration (lighter)
+            Color crossColor = Color.Lerp(color, Color.White, 0.4f);
+            // Vertical
+            DrawPixel(spriteBatch, whitePixel, x + 7, y + 4, crossColor);
+            DrawPixel(spriteBatch, whitePixel, x + 7, y + 5, crossColor);
+            DrawPixel(spriteBatch, whitePixel, x + 7, y + 6, crossColor);
+            DrawPixel(spriteBatch, whitePixel, x + 7, y + 7, crossColor);
+            DrawPixel(spriteBatch, whitePixel, x + 7, y + 8, crossColor);
+            // Horizontal
+            DrawPixel(spriteBatch, whitePixel, x + 5, y + 6, crossColor);
+            DrawPixel(spriteBatch, whitePixel, x + 6, y + 6, crossColor);
+            DrawPixel(spriteBatch, whitePixel, x + 8, y + 6, crossColor);
+            DrawPixel(spriteBatch, whitePixel, x + 9, y + 6, crossColor);
         }
         
         private static void DrawPixel(SpriteBatch spriteBatch, Texture2D whitePixel, int x, int y, Color color)
