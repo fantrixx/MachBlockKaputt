@@ -38,7 +38,7 @@ namespace AlleywayMonoGame.Services
         {
             try
             {
-                ExplosionSound = CreateExplosionSoundEffect(440, 0.12f, 0.6f);
+                ExplosionSound = CreateExplosionSoundEffect(280, 0.15f, 0.5f);
                 PaddleSound = CreateExplosionSoundEffect(1000, 0.06f, 0.85f);
                 WallBounceSound = CreateWallBounceSound();
                 PaddleBounceSound = CreatePaddleBounceSound();

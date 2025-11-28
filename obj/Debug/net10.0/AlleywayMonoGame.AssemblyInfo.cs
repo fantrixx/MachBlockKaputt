@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AlleywayMonoGame")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+eab29d4a2f2e192fc1e47676dcbb55909a081451")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4a9847185b0e6362a0be504ce0d01e0fa07c198c")]
 [assembly: System.Reflection.AssemblyProductAttribute("AlleywayMonoGame")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AlleywayMonoGame")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
