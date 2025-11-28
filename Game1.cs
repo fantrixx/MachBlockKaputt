@@ -43,6 +43,7 @@ namespace AlleywayMonoGame
         private BackgroundManager _backgroundManager = null!;
         private UIManager _uiManager = null!;
         private PowerUpManager _powerUpManager = null!;
+        private UFOManager _ufoManager = null!;
         
         // Controllers
         private InputHandler _inputHandler = null!;
@@ -135,6 +136,9 @@ namespace AlleywayMonoGame
             
             // Initialize PowerUpManager after AudioService is ready
             _powerUpManager = new PowerUpManager(_paddle, _projectiles, _audioService);
+            
+            // Initialize UFOManager
+            _ufoManager = new UFOManager(GameConstants.ScreenWidth, _audioService);
             
             // Initialize controllers after all services are ready
             _gameFlowController = new GameFlowController(
@@ -398,6 +402,12 @@ namespace AlleywayMonoGame
                 _bricks.Clear();
             }
 
+            // Test UFO spawn with U key
+            if (Keyboard.GetState().IsKeyDown(Keys.U))
+            {
+                _ufoManager.ForceSpawn();
+            }
+
             // Update timer
             _scoreService.UpdateTimer(dt);
 
@@ -406,6 +416,9 @@ namespace AlleywayMonoGame
 
             // Update flicker for special bricks
             _powerUpManager.FlickerTimer += dt * 10f;
+
+            // Update UFO
+            _ufoManager.Update(dt);
 
             // Update shoot power-up
             UpdateShootPowerUp(dt);
@@ -542,6 +555,27 @@ namespace AlleywayMonoGame
                 GameConstants.ScreenHeight
             );
 
+            // Check UFO collisions
+            foreach (var ball in _balls)
+            {
+                if (_ufoManager.CheckCollision(ball, _bricks, out Vector2 ufoPos, out Vector2 targetPos))
+                {
+                    // UFO was hit - explosion effect
+                    _particleSystem.SpawnExplosion(ufoPos, 30, Color.Orange);
+                    _particleSystem.SpawnExplosion(ufoPos, 20, Color.Red);
+                    _audioService.PlayExplosion();
+                    _floatingTextSystem.AddText("STEEL BLOCK!", ufoPos, Color.Gray, 3f);
+                    
+                    // Lightning bolt from UFO to target brick
+                    if (targetPos != Vector2.Zero)
+                    {
+                        SpawnLightningBolt(ufoPos, targetPos);
+                    }
+                    
+                    break; // Only one ball can hit per frame
+                }
+            }
+
             // Handle wall bounces
             if (collisionResult.WallBounce)
             {
@@ -580,6 +614,34 @@ namespace AlleywayMonoGame
 
         private void HandleBrickDestruction(int index, Brick brick, bool fromProjectile = false)
         {
+            // Steel bricks need special handling
+            if (brick.IsSteel)
+            {
+                bool destroyed = brick.HitSteel();
+                
+                // Spawn crack particles
+                _particleSystem.SpawnExplosion(brick.Center, 5, Color.Gray);
+                _audioService.PlayWallBounce(); // Metallic sound
+                
+                if (destroyed)
+                {
+                    // Steel brick finally destroyed
+                    _bricks.RemoveAt(index);
+                    _scoreService.AddBrickScore();
+                    _particleSystem.SpawnExplosion(brick.Center, 20, Color.DarkGray);
+                    _particleSystem.SpawnExplosion(brick.Center, 15, Color.Silver);
+                    _audioService.PlayExplosion();
+                    _floatingTextSystem.AddText("STEEL DESTROYED!", brick.Center, Color.Silver, 2f);
+                }
+                else
+                {
+                    // Show remaining hits
+                    _floatingTextSystem.AddText($"{brick.SteelHitsRemaining} LEFT", brick.Center, Color.Gray, 1f);
+                }
+                
+                return; // Don't process as normal brick
+            }
+            
             // Delegate to CollisionHandler
             var result = _collisionHandler.HandleBrickDestruction(brick, fromProjectile);
             
@@ -712,6 +774,9 @@ namespace AlleywayMonoGame
                 false
             );
             _balls.Add(ball);
+            
+            // Reset UFO when ball resets (only if manager is initialized)
+            _ufoManager?.Reset();
         }
 
         private void SpawnExtraBall(Vector2 position)
@@ -767,6 +832,53 @@ namespace AlleywayMonoGame
             
             // Central mega explosion
             _particleSystem.SpawnExplosion(position, 50, Color.White);
+        }
+
+        private void SpawnLightningBolt(Vector2 startPos, Vector2 endPos)
+        {
+            // Create lightning bolt effect from UFO to target brick
+            var random = new Random();
+            
+            // Calculate direction and distance
+            Vector2 direction = endPos - startPos;
+            float distance = direction.Length();
+            direction.Normalize();
+            
+            // Create lightning segments with random offsets
+            int segments = (int)(distance / 10f); // One segment per 10 pixels
+            Vector2 currentPos = startPos;
+            
+            for (int i = 0; i < segments; i++)
+            {
+                float progress = i / (float)segments;
+                
+                // Random offset perpendicular to direction
+                Vector2 perpendicular = new Vector2(-direction.Y, direction.X);
+                float offset = random.Next(-8, 9);
+                
+                // Target position with random zigzag
+                Vector2 nextPos = startPos + direction * (distance * (i + 1) / segments) + perpendicular * offset;
+                
+                // Spawn particles along the lightning path
+                int particlesPerSegment = 3;
+                for (int j = 0; j < particlesPerSegment; j++)
+                {
+                    Vector2 particlePos = Vector2.Lerp(currentPos, nextPos, j / (float)particlesPerSegment);
+                    
+                    // Bright cyan/white lightning particles
+                    Color lightningColor = random.Next(2) == 0 ? Color.Cyan : Color.White;
+                    _particleSystem.SpawnExplosion(particlePos, 2, lightningColor);
+                }
+                
+                currentPos = nextPos;
+            }
+            
+            // Extra bright flash at start and end
+            _particleSystem.SpawnExplosion(startPos, 8, Color.White);
+            _particleSystem.SpawnExplosion(endPos, 12, Color.Cyan);
+            
+            // Sound effect for lightning
+            _audioService.PlayPowerUp(); // Electric sound
         }
 
         #endregion
@@ -916,7 +1028,50 @@ namespace AlleywayMonoGame
             foreach (var ball in _balls)
             {
                 if (_ballTexture != null)
-                    _spriteBatch.Draw(_ballTexture, ball.Rect, Color.Silver);
+                {
+                    // Pulse effect during Multi-Ball Chaos mode
+                    if (_powerUpManager.MultiBallChaosActive && _balls.Count > 1)
+                    {
+                        // Pulsating scale and glow
+                        float pulseTimer = (float)_scoreService.GameTimer * 8f; // Fast pulse
+                        float pulseScale = 1f + (float)Math.Sin(pulseTimer) * 0.15f; // 0.85 to 1.15
+                        
+                        // Calculate pulsing size
+                        int pulseSize = (int)(ball.Rect.Width * pulseScale);
+                        int pulseOffset = (ball.Rect.Width - pulseSize) / 2;
+                        
+                        Rectangle pulseRect = new Rectangle(
+                            ball.Rect.X + pulseOffset,
+                            ball.Rect.Y + pulseOffset,
+                            pulseSize,
+                            pulseSize
+                        );
+                        
+                        // Colorful glow effect
+                        float glowIntensity = (float)Math.Sin(pulseTimer) * 0.5f + 0.5f; // 0 to 1
+                        Color[] chaosColors = { Color.Magenta, Color.Cyan, Color.Yellow, Color.Lime };
+                        int ballIndex = _balls.IndexOf(ball);
+                        Color glowColor = chaosColors[ballIndex % chaosColors.Length];
+                        
+                        // Draw glow halo
+                        int haloSize = pulseSize + (int)(6 * glowIntensity);
+                        Rectangle haloRect = new Rectangle(
+                            ball.Rect.X + (ball.Rect.Width - haloSize) / 2,
+                            ball.Rect.Y + (ball.Rect.Width - haloSize) / 2,
+                            haloSize,
+                            haloSize
+                        );
+                        _spriteBatch.Draw(_ballTexture, haloRect, glowColor * (0.3f * glowIntensity));
+                        
+                        // Draw pulsing ball
+                        _spriteBatch.Draw(_ballTexture, pulseRect, Color.White);
+                    }
+                    else
+                    {
+                        // Normal ball rendering
+                        _spriteBatch.Draw(_ballTexture, ball.Rect, Color.Silver);
+                    }
+                }
             }
 
             // Bricks
@@ -926,6 +1081,12 @@ namespace AlleywayMonoGame
             foreach (var proj in _projectiles)
             {
                 _spriteBatch.Draw(_whitePixel, proj.Bounds, Color.Yellow);
+            }
+
+            // UFO
+            if (_ufoManager.UFOActive)
+            {
+                DrawUFO(_ufoManager.CurrentUFO);
             }
 
             // Particles
@@ -1088,6 +1249,13 @@ namespace AlleywayMonoGame
 
                 bool isSpecial = brick.Type == BrickType.Special && !_powerUpManager.CanShoot && !_powerUpManager.MultiBallChaosActive;
 
+                // Steel bricks - special rendering with cracks
+                if (brick.IsSteel)
+                {
+                    DrawSteelBrick(brick);
+                    continue;
+                }
+
                 if (isSpecial)
                 {
                     // Animated special block - Pixel Art style
@@ -1147,6 +1315,105 @@ namespace AlleywayMonoGame
                         new Rectangle(brick.Bounds.Right - 4, brick.Bounds.Y + 2, 2, brick.Bounds.Height - 4), 
                         shadowColor);
                 }
+            }
+        }
+
+        private void DrawUFO(UFO ufo)
+        {
+            // Pixel-art flying saucer
+            Rectangle bounds = ufo.Bounds;
+            int centerX = bounds.X + bounds.Width / 2;
+            int centerY = bounds.Y + bounds.Height / 2;
+
+            // Dome (top part)
+            int domeHeight = bounds.Height / 3;
+            Color domeColor = new Color(150, 150, 200);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(centerX - 12, bounds.Y, 24, domeHeight), domeColor);
+            
+            // Dome window
+            _spriteBatch.Draw(_whitePixel, new Rectangle(centerX - 6, bounds.Y + 2, 12, domeHeight - 4), Color.Cyan * 0.7f);
+
+            // Main body (saucer disc)
+            Color bodyColor = new Color(100, 100, 120);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(bounds.X, centerY - 4, bounds.Width, 8), bodyColor);
+            
+            // Body highlight
+            _spriteBatch.Draw(_whitePixel, new Rectangle(bounds.X + 2, centerY - 3, bounds.Width - 4, 2), new Color(180, 180, 200));
+            
+            // Body shadow
+            _spriteBatch.Draw(_whitePixel, new Rectangle(bounds.X + 2, centerY + 1, bounds.Width - 4, 2), new Color(60, 60, 80));
+
+            // Lights (blinking)
+            float lightFlicker = (float)Math.Sin(_scoreService.GameTimer * 10) * 0.5f + 0.5f;
+            Color lightColor = Color.Lerp(Color.Red, Color.Yellow, lightFlicker);
+            
+            _spriteBatch.Draw(_whitePixel, new Rectangle(bounds.X + 8, centerY, 3, 3), lightColor);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(bounds.Right - 11, centerY, 3, 3), lightColor);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(centerX - 1, centerY, 3, 3), Color.Green * lightFlicker);
+
+            // Bottom beam effect (subtle)
+            if (lightFlicker > 0.7f)
+            {
+                _spriteBatch.Draw(_whitePixel, new Rectangle(centerX - 2, centerY + 4, 4, 10), Color.Cyan * 0.3f);
+            }
+        }
+
+        private void DrawSteelBrick(Brick brick)
+        {
+            // Steel gray color
+            Color steelColor = new Color(100, 100, 110);
+            _spriteBatch.Draw(_whitePixel, brick.Bounds, steelColor);
+
+            // Metallic sheen
+            Color sheenColor = new Color(180, 180, 190);
+            _spriteBatch.Draw(_whitePixel, 
+                new Rectangle(brick.Bounds.X + 2, brick.Bounds.Y + 2, brick.Bounds.Width - 4, 3), 
+                sheenColor);
+
+            // Rivets (steel look)
+            Color rivetColor = new Color(70, 70, 80);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 3, brick.Bounds.Y + 3, 2, 2), rivetColor);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.Right - 5, brick.Bounds.Y + 3, 2, 2), rivetColor);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 3, brick.Bounds.Bottom - 5, 2, 2), rivetColor);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.Right - 5, brick.Bounds.Bottom - 5, 2, 2), rivetColor);
+
+            // Progressive cracks based on hits remaining
+            Color crackColor = new Color(40, 40, 50);
+            int hits = brick.SteelHitsRemaining;
+
+            // Stage 1: 4 hits left - small crack
+            if (hits <= 4)
+            {
+                _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 8, brick.Bounds.Y + 4, 1, 6), crackColor);
+                _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 8, brick.Bounds.Y + 4, 6, 1), crackColor);
+            }
+
+            // Stage 2: 3 hits left - crack extends
+            if (hits <= 3)
+            {
+                _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 14, brick.Bounds.Y + 7, 1, 8), crackColor);
+                _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 14, brick.Bounds.Y + 7, 10, 1), crackColor);
+            }
+
+            // Stage 3: 2 hits left - more cracks
+            if (hits <= 2)
+            {
+                _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 20, brick.Bounds.Y + 3, 1, 12), crackColor);
+                _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 6, brick.Bounds.Y + 12, 12, 1), crackColor);
+                
+                // Darken brick
+                _spriteBatch.Draw(_whitePixel, brick.Bounds, Color.Black * 0.2f);
+            }
+
+            // Stage 4: 1 hit left - heavily damaged
+            if (hits <= 1)
+            {
+                _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 4, brick.Bounds.Y + 8, 1, 8), crackColor);
+                _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 24, brick.Bounds.Y + 10, 1, 6), crackColor);
+                _spriteBatch.Draw(_whitePixel, new Rectangle(brick.Bounds.X + 10, brick.Bounds.Y + 15, 15, 1), crackColor);
+                
+                // Heavy darkening
+                _spriteBatch.Draw(_whitePixel, brick.Bounds, Color.Black * 0.4f);
             }
         }
 

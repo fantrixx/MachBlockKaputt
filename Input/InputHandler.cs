@@ -97,8 +97,8 @@ namespace AlleywayMonoGame.Input
             uiManager.NextLevelButtonHovered = uiManager.NextLevelButton.Contains(mousePos);
             uiManager.RerollButtonHovered = uiManager.RerollButton.Contains(mousePos);
 
-            // Check for clicks
-            if (mouseState.LeftButton == ButtonState.Pressed && !purchaseAnimationActive && moneyAnimationDone)
+            // Check for clicks (only on button press, not hold)
+            if (mouseState.LeftButton == ButtonState.Pressed && _previousMouseState.LeftButton == ButtonState.Released && !purchaseAnimationActive && moneyAnimationDone)
             {
                 for (int i = 0; i < 3; i++)
                 {
@@ -121,6 +121,7 @@ namespace AlleywayMonoGame.Input
                 }
             }
 
+            _previousMouseState = mouseState;
             return result;
         }
 

@@ -9,14 +9,32 @@ namespace AlleywayMonoGame.Entities
     {
         public Rectangle Bounds { get; }
         public BrickType Type { get; set; }
+        public int SteelHitsRemaining { get; set; } // For steel bricks (5 hits to destroy)
 
         public Brick(Rectangle bounds, BrickType type = BrickType.Normal)
         {
             Bounds = bounds;
             Type = type;
+            SteelHitsRemaining = 0;
         }
 
         public Vector2 Center => new Vector2(Bounds.Center.X, Bounds.Center.Y);
+        
+        public bool IsSteel => Type == BrickType.Steel;
+        
+        public void ConvertToSteel()
+        {
+            Type = BrickType.Steel;
+            SteelHitsRemaining = 5;
+        }
+        
+        public bool HitSteel()
+        {
+            if (!IsSteel) return false;
+            
+            SteelHitsRemaining--;
+            return SteelHitsRemaining <= 0; // Returns true when destroyed
+        }
         
         public static Color GetColorForRow(int row)
         {
@@ -34,6 +52,7 @@ namespace AlleywayMonoGame.Entities
     public enum BrickType
     {
         Normal,
-        Special
+        Special,
+        Steel
     }
 }

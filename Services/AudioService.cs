@@ -25,6 +25,7 @@ namespace AlleywayMonoGame.Services
         public SoundEffect? VictorySound { get; private set; }
         public SoundEffect? PaddleEnlargeSound { get; private set; }
         public SoundEffect? PaddleShrinkSound { get; private set; }
+        public SoundEffect? UFOSound { get; private set; }
 
         public AudioService()
         {
@@ -50,6 +51,7 @@ namespace AlleywayMonoGame.Services
                 VictorySound = CreateVictorySound();
                 PaddleEnlargeSound = CreatePaddleEnlargeSound();
                 PaddleShrinkSound = CreatePaddleShrinkSound();
+                UFOSound = CreateUFOSound();
             }
             catch
             {
@@ -71,6 +73,7 @@ namespace AlleywayMonoGame.Services
         public void PlayVictory() => VictorySound?.Play();
         public void PlayPaddleEnlarge() => PaddleEnlargeSound?.Play();
         public void PlayPaddleShrink() => PaddleShrinkSound?.Play();
+        public void PlayUFO() => UFOSound?.Play();
 
         private SoundEffect CreateExplosionSoundEffect(int frequency, float durationSeconds, float volume)
         {
@@ -682,6 +685,54 @@ namespace AlleywayMonoGame.Services
                 double tone = Math.Sin(2.0 * Math.PI * frequency * t);
                 
                 short sample = (short)(amplitude * tone * env);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreateUFOSound()
+        {
+            const int sampleRate = 44100;
+            float durationSeconds = 3f; // 3 second loop
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            WriteWavHeader(bw, samples);
+
+            double amplitude = 32760 * 0.3f; // Quieter, mysterious
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Eerie oscillating warble between 200-400 Hz
+                double baseFreq = 300;
+                double warbleAmount = 100;
+                double warbleSpeed = 3.0; // Oscillations per second
+                double frequency = baseFreq + Math.Sin(2.0 * Math.PI * warbleSpeed * t) * warbleAmount;
+                
+                // Add slight tremolo (volume variation)
+                double tremolo = 0.85 + 0.15 * Math.Sin(2.0 * Math.PI * 5.0 * t);
+                
+                // Main tone
+                double tone = Math.Sin(2.0 * Math.PI * frequency * t);
+                
+                // Add subtle harmonics for alien/mysterious feel
+                double harmonic1 = 0.3 * Math.Sin(2.0 * Math.PI * frequency * 1.5 * t);
+                double harmonic2 = 0.2 * Math.Sin(2.0 * Math.PI * frequency * 2.0 * t);
+                
+                // Combine
+                double signal = tone + harmonic1 + harmonic2;
+                signal *= tremolo;
+                
+                short sample = (short)(amplitude * signal);
                 bw.Write(sample);
                 t += dt;
             }
