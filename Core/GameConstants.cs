@@ -17,7 +17,7 @@ namespace AlleywayMonoGame.Core
         // Paddle constants
         public const int PaddleWidth = 100;
         public const int PaddleHeight = 20;
-        public const int PaddleSpeed = 400;
+        public const int PaddleSpeed = 500;
 
         // Ball constants
         public const int BallSize = 14;

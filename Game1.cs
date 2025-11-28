@@ -413,6 +413,9 @@ namespace AlleywayMonoGame
                     _bricks = levelResult.NewBricks;
                     _paddle = levelResult.NewPaddle;
                     
+                    // Reset UFO when starting new level
+                    _ufoManager.Reset();
+                    
                     // Recreate PowerUpManager with new paddle reference
                     _powerUpManager = new PowerUpManager(_paddle, _projectiles, _audioService);
                 }
