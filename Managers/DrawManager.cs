@@ -381,6 +381,130 @@ namespace AlleywayMonoGame.Managers
             _spriteBatch.DrawString(_font, timerText, new Vector2((GameConstants.ScreenWidth - timerSize.X) / 2, 15), Color.White);
         }
 
+        public void DrawInfoBar()
+        {
+            int infoBarY = GameConstants.ScreenHeight - GameConstants.InfoBarHeight;
+            
+            // Dark gradient background (similar to top UI)
+            for (int i = 0; i < 5; i++)
+            {
+                float alpha = 0.8f - (i * 0.1f);
+                _spriteBatch.Draw(_whitePixel, new Rectangle(0, infoBarY + i * 9, GameConstants.ScreenWidth, 9), new Color(5, 5, 25) * alpha);
+            }
+            
+            // Pixel stars in info bar
+            for (int x = 0; x < GameConstants.ScreenWidth; x += 40)
+            {
+                for (int y = infoBarY + 5; y < GameConstants.ScreenHeight - 5; y += 15)
+                {
+                    if ((x + y) % 80 == 0)
+                    {
+                        _spriteBatch.Draw(_whitePixel, new Rectangle(x, y, 1, 1), Color.White * 0.3f);
+                    }
+                }
+            }
+            
+            // Top border
+            _spriteBatch.Draw(_whitePixel, new Rectangle(0, infoBarY, GameConstants.ScreenWidth, 2), new Color(100, 150, 255));
+            _spriteBatch.Draw(_whitePixel, new Rectangle(0, infoBarY + 2, GameConstants.ScreenWidth, 1), new Color(150, 200, 255) * 0.5f);
+
+            if (_font == null) return;
+
+            int textY = infoBarY + 12;
+            
+            // LEFT: Paddle Stats
+            int leftX = 15;
+            
+            // Paddle size indicator
+            float sizePercent = (_shopService.PaddleSizeMultiplier - 1.0f) * 100f;
+            string sizeText = $"SIZE: {sizePercent:F0}%";
+            _spriteBatch.DrawString(_font, sizeText, new Vector2(leftX, textY), new Color(150, 255, 150));
+            
+            // Paddle speed indicator
+            float speedPercent = (_shopService.PaddleSpeedMultiplier - 1.0f) * 100f;
+            string speedText = $"SPEED: {speedPercent:F0}%";
+            _spriteBatch.DrawString(_font, speedText, new Vector2(leftX, textY + 15), new Color(100, 200, 255));
+            
+            // MIDDLE: Purchased Items (Icons)
+            int middleStartX = 250;
+            int iconSpacing = 35;
+            int iconIndex = 0;
+            
+            // Show active one-time items
+            if (_shopService.StartWithShootMode)
+            {
+                DrawPurchasedItemIcon(ShopItem.ShootMode, middleStartX + iconIndex * iconSpacing, infoBarY + 10);
+                iconIndex++;
+            }
+            
+            if (_shopService.HasShield || _shopService.ShieldBreaking)
+            {
+                float alpha = _shopService.ShieldBreaking ? (0.3f + (float)Math.Sin(_scoreService.GameTimer * 10f) * 0.3f) : 1f;
+                DrawPurchasedItemIcon(ShopItem.Shield, middleStartX + iconIndex * iconSpacing, infoBarY + 10, alpha);
+                iconIndex++;
+            }
+            
+            if (_shopService.ExtraBallsPurchased > 0)
+            {
+                DrawPurchasedItemIcon(ShopItem.ExtraBall, middleStartX + iconIndex * iconSpacing, infoBarY + 10);
+                // Show count
+                string countText = $"x{_shopService.ExtraBallsPurchased}";
+                Vector2 countPos = new Vector2(middleStartX + iconIndex * iconSpacing + 18, infoBarY + 25);
+                _spriteBatch.DrawString(_font, countText, countPos + new Vector2(1, 1), Color.Black * 0.7f);
+                _spriteBatch.DrawString(_font, countText, countPos, Color.White);
+                iconIndex++;
+            }
+            
+            if (iconIndex == 0)
+            {
+                // No items purchased
+                string noItemsText = "NO ITEMS";
+                Vector2 noItemsSize = _font.MeasureString(noItemsText);
+                _spriteBatch.DrawString(_font, noItemsText, new Vector2(middleStartX + 20, textY + 5), Color.Gray * 0.5f);
+            }
+            
+            // RIGHT: Active Mode
+            int rightX = GameConstants.ScreenWidth - 180;
+            
+            if (_powerUpManager.CanShoot)
+            {
+                float timeLeft = _powerUpManager.ShootPowerTimer;
+                string modeText = $"SHOOT: {timeLeft:F1}s";
+                Color modeColor = timeLeft < 2f ? Color.Lerp(Color.Red, Color.Yellow, (float)Math.Sin(_scoreService.GameTimer * 8f) * 0.5f + 0.5f) : new Color(255, 100, 100);
+                _spriteBatch.DrawString(_font, modeText, new Vector2(rightX, textY), modeColor);
+            }
+            else if (_powerUpManager.BigPaddleActive)
+            {
+                float timeLeft = _powerUpManager.BigPaddleTimer;
+                string modeText = $"BIG: {timeLeft:F1}s";
+                Color modeColor = timeLeft < 2f ? Color.Lerp(Color.Green, Color.Yellow, (float)Math.Sin(_scoreService.GameTimer * 8f) * 0.5f + 0.5f) : new Color(150, 255, 150);
+                _spriteBatch.DrawString(_font, modeText, new Vector2(rightX, textY), modeColor);
+            }
+            else if (_powerUpManager.MultiBallChaosActive)
+            {
+                string modeText = "CHAOS!";
+                float flicker = (float)Math.Sin(_scoreService.GameTimer * 6f) * 0.5f + 0.5f;
+                Color modeColor = Color.Lerp(Color.Magenta, Color.Cyan, flicker);
+                _spriteBatch.DrawString(_font, modeText, new Vector2(rightX + 30, textY), modeColor);
+            }
+            else
+            {
+                string modeText = "NORMAL";
+                _spriteBatch.DrawString(_font, modeText, new Vector2(rightX + 20, textY + 5), Color.Gray * 0.6f);
+            }
+        }
+
+        private void DrawPurchasedItemIcon(ShopItem item, int x, int y, float alpha = 1f)
+        {
+            // Draw background box
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x - 2, y - 2, 28, 28), new Color(30, 30, 50) * alpha);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x - 1, y - 1, 26, 26), new Color(50, 50, 70) * alpha);
+            
+            // Draw icon
+            Color iconColor = _shopService.GetItemColor(item) * alpha;
+            ShopIconRenderer.DrawIcon(_spriteBatch, _whitePixel, item, new Vector2(x + 4, y + 4), iconColor);
+        }
+
         private void DrawShieldOverlay(int x, int y)
         {
             // Check if shield is breaking

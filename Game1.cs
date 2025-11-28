@@ -1072,6 +1072,9 @@ namespace AlleywayMonoGame
             // UI
             _drawManager.DrawUI(_gameState.CurrentLevel);
 
+            // Info Bar (bottom)
+            _drawManager.DrawInfoBar();
+
             // Shoot mode indicator
             _drawManager.DrawShootModeIndicator();
 

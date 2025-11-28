@@ -12,6 +12,7 @@ namespace AlleywayMonoGame.Core
         public const int ScreenWidth = 800;
         public const int ScreenHeight = 600;
         public const int UIHeight = 50;
+        public const int InfoBarHeight = 45;
         public const int GameAreaTop = UIHeight + 3;
 
         // Paddle constants
