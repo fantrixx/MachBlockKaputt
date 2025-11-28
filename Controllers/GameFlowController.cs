@@ -169,13 +169,20 @@ namespace AlleywayMonoGame.Controllers
         /// <summary>
         /// Handles all balls lost
         /// </summary>
-        public void OnAllBallsLost(List<Ball> balls, Paddle paddle, Action setupGameOverUI)
+        public void OnAllBallsLost(List<Ball> balls, Paddle paddle, ShopService shopService, Action setupGameOverUI, Action onShieldUsed)
         {
-            _scoreService.LoseLife();
+            bool shieldAbsorbed = _scoreService.LoseLife(shopService);
 
-            if (_scoreService.Lives > 0)
+            if (shieldAbsorbed)
             {
-                // Reset ball
+                // Shield absorbed the damage - just reset ball
+                balls.Clear();
+                balls.Add(CreateInitialBall(paddle, _gameState.CurrentLevel));
+                onShieldUsed();
+            }
+            else if (_scoreService.Lives > 0)
+            {
+                // Life lost but game continues
                 balls.Clear();
                 balls.Add(CreateInitialBall(paddle, _gameState.CurrentLevel));
             }

@@ -762,12 +762,19 @@ namespace AlleywayMonoGame
 
         private void OnAllBallsLost()
         {
-            _gameFlowController.OnAllBallsLost(_balls, _paddle, SetupGameOverUI);
+            _gameFlowController.OnAllBallsLost(_balls, _paddle, _shopService, SetupGameOverUI, OnShieldUsed);
             
             if (_scoreService.IsGameOver)
             {
                 _audioService.PlayGameOver();
             }
+        }
+
+        private void OnShieldUsed()
+        {
+            // Play shield break sound
+            _audioService.PlayPaddleShrink(); // Reuse existing sound for now
+            // Could add dedicated shield break sound later
         }
 
         private void OnLevelComplete()

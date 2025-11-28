@@ -143,6 +143,11 @@ namespace AlleywayMonoGame.Services
             StartWithShootMode = false;
         }
 
+        public void UseShield()
+        {
+            HasShield = false;
+        }
+
         public int CalculateTimeBonus(float gameTime)
         {
             return Math.Max(0, 100 - (int)gameTime);

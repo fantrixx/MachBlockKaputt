@@ -360,7 +360,17 @@ namespace AlleywayMonoGame.Managers
             {
                 if (_heartTexture != null)
                 {
-                    _spriteBatch.Draw(_heartTexture, new Rectangle(10 + i * 28, 13, 24, 24), Color.Red);
+                    int heartX = 10 + i * 28;
+                    int heartY = 13;
+                    
+                    // Draw heart
+                    _spriteBatch.Draw(_heartTexture, new Rectangle(heartX, heartY, 24, 24), Color.Red);
+                    
+                    // Draw shield overlay if shield is active (only on first heart)
+                    if (i == 0 && _shopService.HasShield)
+                    {
+                        DrawShieldOverlay(heartX, heartY);
+                    }
                 }
             }
 
@@ -369,6 +379,41 @@ namespace AlleywayMonoGame.Managers
             string timerText = _scoreService.GetFormattedTime();
             Vector2 timerSize = _font.MeasureString(timerText);
             _spriteBatch.DrawString(_font, timerText, new Vector2((GameConstants.ScreenWidth - timerSize.X) / 2, 15), Color.White);
+        }
+
+        private void DrawShieldOverlay(int x, int y)
+        {
+            // Shield color with pulsing effect
+            float pulse = (float)Math.Sin(_scoreService.GameTimer * 4f) * 0.3f + 0.7f;
+            Color shieldColor = new Color(200, 150, 255) * pulse;
+            
+            // Shield shape around heart (medieval style)
+            // Top
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 8, y - 2, 8, 2), shieldColor);
+            
+            // Upper sides
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 6, y, 2, 2), shieldColor);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 16, y, 2, 2), shieldColor);
+            
+            // Middle sides
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 4, y + 2, 2, 8), shieldColor);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 18, y + 2, 2, 8), shieldColor);
+            
+            // Lower sides narrowing
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 6, y + 10, 2, 4), shieldColor);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 16, y + 10, 2, 4), shieldColor);
+            
+            // Bottom point
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 8, y + 14, 2, 3), shieldColor);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 14, y + 14, 2, 3), shieldColor);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 10, y + 17, 4, 2), shieldColor);
+            
+            // Cross decoration (lighter)
+            Color crossColor = Color.Lerp(shieldColor, Color.White, 0.5f);
+            // Vertical line
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 11, y + 4, 2, 8), crossColor);
+            // Horizontal line
+            _spriteBatch.Draw(_whitePixel, new Rectangle(x + 7, y + 7, 10, 2), crossColor);
         }
 
         public void DrawShootModeIndicator()

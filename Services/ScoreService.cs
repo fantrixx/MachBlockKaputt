@@ -25,9 +25,17 @@ namespace AlleywayMonoGame.Services
             Score += BrickPoints;
         }
 
-        public void LoseLife()
+        public bool LoseLife(ShopService shopService)
         {
+            // Check if shield is active
+            if (shopService.HasShield)
+            {
+                shopService.UseShield();
+                return true; // Shield absorbed the damage
+            }
+            
             Lives--;
+            return false; // Life was lost
         }
 
         public void Reset()
