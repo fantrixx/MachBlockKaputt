@@ -569,6 +569,12 @@ namespace AlleywayMonoGame
                 {
                     OnAllBallsLost();
                 }
+                else if (_balls.Count == 1 && _powerUpManager.MultiBallChaosActive)
+                {
+                    // Deactivate multi-ball chaos when only 1 ball remains
+                    _powerUpManager.DeactivateMultiBallChaos();
+                    _floatingTextSystem.AddText("CHAOS ENDED", _balls[0].Center, Color.Gray, 2f);
+                }
             }
         }
 
@@ -580,28 +586,49 @@ namespace AlleywayMonoGame
             _bricks.RemoveAt(index);
             _scoreService.AddBrickScore();
 
-            // Special brick: randomly activate one of three power-ups (blocked during shoot mode)
-            if (result.WasSpecialBrick && !_powerUpManager.CanShoot)
+            // Special brick: randomly activate one of four power-ups (blocked during shoot mode or multi-ball chaos)
+            if (result.WasSpecialBrick && !_powerUpManager.CanShoot && !_powerUpManager.MultiBallChaosActive)
             {
                 var random = new Random();
-                int powerUpType = random.Next(3); // 0, 1, or 2
+                int powerUpType = random.Next(10); // 0-9 for 10% Multi-Ball Chaos chance
                 
-                switch (powerUpType)
+                if (powerUpType == 9) // 10% chance for Multi-Ball Chaos
                 {
-                    case 0: // Shoot mode
-                        _powerUpManager.ActivateShootMode();
-                        _floatingTextSystem.AddText("SHOOT MODE!", brick.Center, Color.Yellow, 3f);
-                        break;
-                        
-                    case 1: // Extra ball
-                        SpawnExtraBall(brick.Center);
-                        _floatingTextSystem.AddText("+BALL", brick.Center, Color.White, 3f);
-                        break;
-                        
-                    case 2: // Big paddle (refresh timer if already active)
-                        _powerUpManager.ActivateBigPaddle();
-                        _floatingTextSystem.AddText("BIG PADDLE!", brick.Center, Color.Cyan, 3f);
-                        break;
+                    SpawnMultiBallChaos(brick.Center);
+                    _powerUpManager.ActivateMultiBallChaos();
+                    _floatingTextSystem.AddText("MULTI-BALL CHAOS!", brick.Center, Color.Magenta, 4f);
+                    _audioService.PlayPowerUp();
+                    
+                    // Massive particle explosion
+                    _particleSystem.SpawnExplosion(brick.Center, 40, Color.Magenta);
+                    _particleSystem.SpawnExplosion(brick.Center, 30, Color.Yellow);
+                    _particleSystem.SpawnExplosion(brick.Center, 30, Color.Cyan);
+                    
+                    // Play explosion sound
+                    _audioService.PlayExplosion();
+                }
+                else
+                {
+                    // 90% chance for regular power-ups
+                    int regularPowerUp = random.Next(3); // 0, 1, or 2
+                    
+                    switch (regularPowerUp)
+                    {
+                        case 0: // Shoot mode
+                            _powerUpManager.ActivateShootMode();
+                            _floatingTextSystem.AddText("SHOOT MODE!", brick.Center, Color.Yellow, 3f);
+                            break;
+                            
+                        case 1: // Extra ball
+                            SpawnExtraBall(brick.Center);
+                            _floatingTextSystem.AddText("+BALL", brick.Center, Color.White, 3f);
+                            break;
+                            
+                        case 2: // Big paddle (refresh timer if already active)
+                            _powerUpManager.ActivateBigPaddle();
+                            _floatingTextSystem.AddText("BIG PADDLE!", brick.Center, Color.Cyan, 3f);
+                            break;
+                    }
                 }
             }
         }
@@ -700,6 +727,46 @@ namespace AlleywayMonoGame
                 true
             );
             _balls.Add(ball);
+        }
+
+        private void SpawnMultiBallChaos(Vector2 position)
+        {
+            var random = new Random();
+            int ballCount = random.Next(4, 7); // 4-6 balls (increased)
+            
+            // Spawn multiple balls with different angles
+            for (int i = 0; i < ballCount; i++)
+            {
+                float angle = -90f + (i - ballCount / 2f) * 35f; // Spread across angles
+                float radians = angle * (float)Math.PI / 180f;
+                float speed = 180f + random.Next(-30, 31); // More varied speeds
+                
+                var ball = new Ball(
+                    new Rectangle(
+                        (int)position.X - GameConstants.BallSize / 2 + random.Next(-15, 16),
+                        (int)position.Y + random.Next(-10, 11),
+                        GameConstants.BallSize,
+                        GameConstants.BallSize
+                    ),
+                    new Vector2((float)Math.Cos(radians) * speed, (float)Math.Sin(radians) * speed),
+                    true
+                );
+                _balls.Add(ball);
+                
+                // Spawn colorful particles for each ball with trails
+                Color[] colors = { Color.Red, Color.Yellow, Color.Cyan, Color.Magenta, Color.Lime, Color.Orange };
+                Color ballColor = colors[i % colors.Length];
+                
+                // Multiple particle bursts per ball
+                _particleSystem.SpawnExplosion(ball.Center, 20, ballColor);
+                _particleSystem.SpawnDustCloud(ball.Center, 15);
+                
+                // Floating text for each ball
+                _floatingTextSystem.AddText($"BALL {i+1}!", ball.Center, ballColor, 1.5f);
+            }
+            
+            // Central mega explosion
+            _particleSystem.SpawnExplosion(position, 50, Color.White);
         }
 
         #endregion
@@ -1019,7 +1086,7 @@ namespace AlleywayMonoGame
                 int row = (brick.Bounds.Y - 50) / (brickHeight + 2);
                 Color brickColor = Brick.GetColorForRow(row);
 
-                bool isSpecial = brick.Type == BrickType.Special && !_powerUpManager.CanShoot;
+                bool isSpecial = brick.Type == BrickType.Special && !_powerUpManager.CanShoot && !_powerUpManager.MultiBallChaosActive;
 
                 if (isSpecial)
                 {

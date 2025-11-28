@@ -22,6 +22,9 @@ namespace AlleywayMonoGame.Managers
         public bool BigPaddleActive { get; set; }
         public float BigPaddleTimer { get; set; }
         
+        // Multi-Ball Chaos state
+        public bool MultiBallChaosActive { get; set; }
+        
         public float FlickerTimer { get; set; }
 
         public PowerUpManager(Paddle paddle, List<Projectile> projectiles, AudioService audioService)
@@ -108,10 +111,21 @@ namespace AlleywayMonoGame.Managers
             _audioService.PlayPaddleShrink();
         }
 
+        public void ActivateMultiBallChaos()
+        {
+            MultiBallChaosActive = true;
+        }
+
+        public void DeactivateMultiBallChaos()
+        {
+            MultiBallChaosActive = false;
+        }
+
         public void ResetAll()
         {
             DeactivateShootMode();
             DeactivateBigPaddle();
+            DeactivateMultiBallChaos();
         }
     }
 }
