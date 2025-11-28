@@ -121,11 +121,12 @@ namespace AlleywayMonoGame.Controllers
             }
             extraBallsPurchased = 0;
 
-            // Don't activate shoot mode yet - will be activated when ball is launched
+            // Activate shoot mode immediately if purchased from shop
             if (_shopService.StartWithShootMode)
             {
                 startWithShootMode = true;
                 _shopService.ResetShootMode();
+                // Set flag so it will be activated after ball launch
             }
 
             _scoreService.StartTimer();

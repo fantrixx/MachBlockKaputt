@@ -36,11 +36,11 @@ namespace AlleywayMonoGame.Managers
 
         public void ActivateShootMode(bool startWithShootMode = false)
         {
-            if (!CanShoot && !BigPaddleActive)
+            if (!BigPaddleActive)
             {
                 CanShoot = true;
                 ShootPowerTimer = startWithShootMode ? 6f : 6f;
-                CannonExtension = 0f;
+                CannonExtension = 0f; // Reset to 0 to start extension animation
                 _audioService.PlayPowerUp();
             }
         }
