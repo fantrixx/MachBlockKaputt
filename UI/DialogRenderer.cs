@@ -111,11 +111,11 @@ namespace AlleywayMonoGame.UI
             int boxX = (GameConstants.ScreenWidth - boxWidth) / 2;
             int boxY = 70;
 
-            _spriteBatch.Draw(_whitePixel, new Rectangle(boxX, boxY, boxWidth, boxHeight), new Color(10, 10, 30));
-            drawPixelBox(boxX, boxY, boxWidth, boxHeight, new Color(255, 215, 0), 4);
-            drawPixelBox(boxX + 8, boxY + 8, boxWidth - 16, boxHeight - 16, new Color(200, 170, 0), 2);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(boxX, boxY, boxWidth, boxHeight), UIConstants.DialogBackgroundDark);
+            drawPixelBox(boxX, boxY, boxWidth, boxHeight, UIConstants.BorderGold, UIConstants.BorderThick);
+            drawPixelBox(boxX + UIConstants.BorderInnerOffset2, boxY + UIConstants.BorderInnerOffset2, boxWidth - UIConstants.BorderInnerWidth2, boxHeight - UIConstants.BorderInnerWidth2, UIConstants.BorderGoldDark, UIConstants.BorderThin);
 
-            int yPos = boxY + 30;
+            int yPos = boxY + UIConstants.TextSectionSpacing;
             float glowIntensity = (float)Math.Sin(uiManager.VictoryGlowTimer) * 0.3f + 0.7f;
 
             // Title
@@ -124,19 +124,19 @@ namespace AlleywayMonoGame.UI
 
             Vector2 victorySize = _font.MeasureString(victoryText);
             Vector2 victoryPos = new Vector2((GameConstants.ScreenWidth - victorySize.X) / 2, yPos);
-            _spriteBatch.DrawString(_font, victoryText, victoryPos + new Vector2(2, 2), new Color(100, 80, 0));
-            _spriteBatch.DrawString(_font, victoryText, victoryPos, Color.Lerp(new Color(255, 215, 0), Color.White, glowIntensity * 0.3f));
-            yPos += 40;
+            _spriteBatch.DrawString(_font, victoryText, victoryPos + new Vector2(UIConstants.ShadowOffsetMedium, UIConstants.ShadowOffsetMedium), UIConstants.TextGoldDark);
+            _spriteBatch.DrawString(_font, victoryText, victoryPos, Color.Lerp(UIConstants.TextGold, Color.White, glowIntensity * UIConstants.GlowOpacity));
+            yPos += UIConstants.TextSmallSpacing;
 
             Vector2 chickenSize = _font.MeasureString(chickenText);
             Vector2 chickenPos = new Vector2((GameConstants.ScreenWidth - chickenSize.X) / 2, yPos);
-            _spriteBatch.DrawString(_font, chickenText, chickenPos + new Vector2(2, 2), new Color(100, 80, 0));
-            _spriteBatch.DrawString(_font, chickenText, chickenPos, Color.Lerp(new Color(255, 215, 0), Color.White, glowIntensity * 0.3f));
-            yPos += 50;
+            _spriteBatch.DrawString(_font, chickenText, chickenPos + new Vector2(UIConstants.ShadowOffsetMedium, UIConstants.ShadowOffsetMedium), UIConstants.TextGoldDark);
+            _spriteBatch.DrawString(_font, chickenText, chickenPos, Color.Lerp(UIConstants.TextGold, Color.White, glowIntensity * UIConstants.GlowOpacity));
+            yPos += UIConstants.TextMediumSpacing;
 
             string completionText = "All 10 Levels Completed!";
             Vector2 completionSize = _font.MeasureString(completionText);
-            _spriteBatch.DrawString(_font, completionText, new Vector2((GameConstants.ScreenWidth - completionSize.X) / 2, yPos), new Color(150, 255, 150));
+            _spriteBatch.DrawString(_font, completionText, new Vector2((GameConstants.ScreenWidth - completionSize.X) / 2, yPos), UIConstants.TextGreen);
             yPos += 35;
 
             // Score
@@ -149,13 +149,13 @@ namespace AlleywayMonoGame.UI
             int statsBoxWidth = 350;
             int statsBoxHeight = 115;
             int statsBoxX = boxX + (boxWidth - statsBoxWidth) / 2;
-            _spriteBatch.Draw(_whitePixel, new Rectangle(statsBoxX, yPos, statsBoxWidth, statsBoxHeight), new Color(20, 20, 40));
-            drawPixelBox(statsBoxX, yPos, statsBoxWidth, statsBoxHeight, new Color(100, 200, 255), 2);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(statsBoxX, yPos, statsBoxWidth, statsBoxHeight), UIConstants.DialogBackgroundLight);
+            drawPixelBox(statsBoxX, yPos, statsBoxWidth, statsBoxHeight, UIConstants.BorderBrightBlue, UIConstants.BorderThin);
 
             yPos += 12;
             string statsTitle = "FINANCIAL REPORT";
             Vector2 statsTitleSize = _font.MeasureString(statsTitle);
-            _spriteBatch.DrawString(_font, statsTitle, new Vector2(statsBoxX + (statsBoxWidth - statsTitleSize.X) / 2, yPos), new Color(150, 200, 255));
+            _spriteBatch.DrawString(_font, statsTitle, new Vector2(statsBoxX + (statsBoxWidth - statsTitleSize.X) / 2, yPos), UIConstants.TextBlue);
             yPos += 28;
 
             string earnedText = $"Earned: ${shopService.TotalEarned}";
@@ -166,17 +166,17 @@ namespace AlleywayMonoGame.UI
             Vector2 spentSize = _font.MeasureString(spentText);
             Vector2 profitSize = _font.MeasureString(profitText);
 
-            _spriteBatch.DrawString(_font, earnedText, new Vector2(statsBoxX + (statsBoxWidth - earnedSize.X) / 2, yPos), new Color(150, 255, 150));
+            _spriteBatch.DrawString(_font, earnedText, new Vector2(statsBoxX + (statsBoxWidth - earnedSize.X) / 2, yPos), UIConstants.TextGreenEarned);
             yPos += 23;
-            _spriteBatch.DrawString(_font, spentText, new Vector2(statsBoxX + (statsBoxWidth - spentSize.X) / 2, yPos), new Color(255, 150, 150));
+            _spriteBatch.DrawString(_font, spentText, new Vector2(statsBoxX + (statsBoxWidth - spentSize.X) / 2, yPos), UIConstants.TextRedSpent);
             yPos += 23;
 
-            Color profitColor = (shopService.TotalEarned - shopService.TotalSpent) >= 0 ? new Color(255, 215, 0) : new Color(255, 100, 100);
+            Color profitColor = (shopService.TotalEarned - shopService.TotalSpent) >= 0 ? UIConstants.TextGold : UIConstants.TextRed;
             _spriteBatch.DrawString(_font, profitText, new Vector2(statsBoxX + (statsBoxWidth - profitSize.X) / 2, yPos), profitColor);
 
             // Buttons
-            drawPixelButton(uiManager.VictoryRetryButton, uiManager.VictoryRetryButtonHovered, "PLAY AGAIN", new Color(100, 200, 100), new Color(50, 100, 50));
-            drawPixelButton(uiManager.VictoryQuitButton, uiManager.VictoryQuitButtonHovered, "QUIT", new Color(200, 100, 100), new Color(100, 50, 50));
+            drawPixelButton(uiManager.VictoryRetryButton, uiManager.VictoryRetryButtonHovered, "PLAY AGAIN", UIConstants.ButtonGreenNormal, UIConstants.ButtonGreenDark);
+            drawPixelButton(uiManager.VictoryQuitButton, uiManager.VictoryQuitButtonHovered, "QUIT", UIConstants.ButtonRedNormal, UIConstants.ButtonRedDark);
         }
 
         public void DrawLevelComplete(UIManager uiManager, ScoreService scoreService, ShopService shopService,
@@ -184,28 +184,28 @@ namespace AlleywayMonoGame.UI
             Action<int, int, int, int, Color, int> drawPixelBox,
             Action<Rectangle, bool, string, Color, Color> drawPixelButton)
         {
-            _spriteBatch.Draw(_whitePixel, new Rectangle(0, 0, GameConstants.ScreenWidth, GameConstants.ScreenHeight), Color.Black * 0.8f);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(0, 0, GameConstants.ScreenWidth, GameConstants.ScreenHeight), Color.Black * UIConstants.OverlayOpacityLow);
 
             var layout = new DialogLayout.LevelCompleteLayout();
             var box = layout.DialogBox;
 
             // Main dialog box
-            _spriteBatch.Draw(_whitePixel, box, new Color(10, 10, 30));
-            drawPixelBox(box.X, box.Y, box.Width, box.Height, new Color(100, 200, 100), 4);
-            drawPixelBox(box.X + 8, box.Y + 8, box.Width - 16, box.Height - 16, new Color(150, 255, 150), 2);
+            _spriteBatch.Draw(_whitePixel, box, UIConstants.DialogBackgroundDark);
+            drawPixelBox(box.X, box.Y, box.Width, box.Height, UIConstants.BorderGreen, UIConstants.BorderThick);
+            drawPixelBox(box.X + UIConstants.BorderInnerOffset2, box.Y + UIConstants.BorderInnerOffset2, box.Width - UIConstants.BorderInnerWidth2, box.Height - UIConstants.BorderInnerWidth2, UIConstants.BorderGreenBright, UIConstants.BorderThin);
 
             // Title
             string title = "DONE!";
             Vector2 titleSize = _font.MeasureString(title);
             Vector2 titlePos = new Vector2((GameConstants.ScreenWidth - titleSize.X) / 2, layout.TitleY);
-            _spriteBatch.DrawString(_font, title, titlePos + new Vector2(2, 2), new Color(0, 80, 0));
-            _spriteBatch.DrawString(_font, title, titlePos, new Color(150, 255, 150));
+            _spriteBatch.DrawString(_font, title, titlePos + new Vector2(UIConstants.ShadowOffsetMedium, UIConstants.ShadowOffsetMedium), UIConstants.TextGreenShadow);
+            _spriteBatch.DrawString(_font, title, titlePos, UIConstants.TextGreen);
 
             // Time Bonus Info Box
-            int bonusBoxWidth = 400;
+            int bonusBoxWidth = UIConstants.BonusBoxWidth;
             int bonusBoxX = (GameConstants.ScreenWidth - bonusBoxWidth) / 2;
-            _spriteBatch.Draw(_whitePixel, new Rectangle(bonusBoxX, layout.BonusBoxY, bonusBoxWidth, 60), new Color(20, 20, 40));
-            drawPixelBox(bonusBoxX, layout.BonusBoxY, bonusBoxWidth, 60, new Color(255, 215, 0), 2);
+            _spriteBatch.Draw(_whitePixel, new Rectangle(bonusBoxX, layout.BonusBoxY, bonusBoxWidth, UIConstants.BonusBoxHeight), UIConstants.DialogBackgroundLight);
+            drawPixelBox(bonusBoxX, layout.BonusBoxY, bonusBoxWidth, UIConstants.BonusBoxHeight, UIConstants.BorderGold, UIConstants.BorderThin);
 
             // Time Bonus Calculation with animated money
             int displayedBonus = uiManager.MoneyAnimationDone ? uiManager.LevelCompleteTimeBonus : uiManager.AnimatedMoney;
@@ -213,7 +213,7 @@ namespace AlleywayMonoGame.UI
             Vector2 calcSize = _font.MeasureString(calc);
             
             // Highlight the bonus amount during animation
-            Color calcColor = uiManager.MoneyAnimationDone ? new Color(255, 215, 0) : Color.Lerp(Color.Gray, new Color(255, 215, 0), (float)uiManager.AnimatedMoney / uiManager.LevelCompleteTimeBonus);
+            Color calcColor = uiManager.MoneyAnimationDone ? UIConstants.TextGold : Color.Lerp(Color.Gray, UIConstants.TextGold, (float)uiManager.AnimatedMoney / uiManager.LevelCompleteTimeBonus);
             _spriteBatch.DrawString(_font, calc, new Vector2((GameConstants.ScreenWidth - calcSize.X) / 2, layout.BonusBoxY + 10), calcColor);
 
             // Purchase animation (show anytime after money animation)
@@ -223,7 +223,7 @@ namespace AlleywayMonoGame.UI
                 Vector2 costPos = new Vector2(uiManager.PurchaseCostX, uiManager.PurchaseCostY);
                 float trailAlpha = 1f - (uiManager.PurchaseAnimationTimer / 0.5f);
 
-                _spriteBatch.DrawString(_font, costText, costPos + new Vector2(2, 2), new Color(100, 0, 0) * trailAlpha);
+                _spriteBatch.DrawString(_font, costText, costPos + new Vector2(UIConstants.ShadowOffsetMedium, UIConstants.ShadowOffsetMedium), UIConstants.TextDarkShadow * trailAlpha);
                 _spriteBatch.DrawString(_font, costText, costPos, Color.Red * trailAlpha);
             }
 
@@ -232,20 +232,20 @@ namespace AlleywayMonoGame.UI
             {
                 string shopTitle = "SHOP";
                 Vector2 shopTitleSize = _font.MeasureString(shopTitle);
-                _spriteBatch.DrawString(_font, shopTitle, new Vector2((GameConstants.ScreenWidth - shopTitleSize.X) / 2, layout.ShopTitleY), new Color(100, 200, 255));
+                _spriteBatch.DrawString(_font, shopTitle, new Vector2((GameConstants.ScreenWidth - shopTitleSize.X) / 2, layout.ShopTitleY), UIConstants.TextBlueBright);
 
                 // Shop Box
-                int shopBoxWidth = 420;
+                int shopBoxWidth = UIConstants.ShopBoxWidth;
                 int shopBoxX = (GameConstants.ScreenWidth - shopBoxWidth) / 2;
-                int shopBoxHeight = 160;
+                int shopBoxHeight = UIConstants.ShopBoxHeight;
 
-                _spriteBatch.Draw(_whitePixel, new Rectangle(shopBoxX, layout.ShopBoxY, shopBoxWidth, shopBoxHeight), new Color(15, 15, 35));
-                drawPixelBox(shopBoxX, layout.ShopBoxY, shopBoxWidth, shopBoxHeight, new Color(100, 150, 200), 3);
+                _spriteBatch.Draw(_whitePixel, new Rectangle(shopBoxX, layout.ShopBoxY, shopBoxWidth, shopBoxHeight), UIConstants.DialogBackgroundMedium);
+                drawPixelBox(shopBoxX, layout.ShopBoxY, shopBoxWidth, shopBoxHeight, UIConstants.BorderBlue, UIConstants.BorderMedium);
 
-                int buttonWidth = 380;
-                int buttonHeight = 35;
+                int buttonWidth = UIConstants.ShopItemButtonWidth;
+                int buttonHeight = UIConstants.ShopItemButtonHeight;
                 int buttonX = shopBoxX + (shopBoxWidth - buttonWidth) / 2;
-                int buttonSpacing = 10;
+                int buttonSpacing = UIConstants.ShopItemButtonSpacing;
 
                 // Shop Items
                 for (int i = 0; i < currentShopItems.Length; i++)
@@ -262,25 +262,25 @@ namespace AlleywayMonoGame.UI
                     uiManager.ShopButtons[i] = shopButton;
 
                     // Button background with item color tint (grayed out if purchased)
-                    Color buttonNormal = isPurchased ? new Color(40, 40, 50) : 
-                                        (canAfford ? Color.Lerp(new Color(50, 100, 200), itemColor, 0.3f) : new Color(60, 60, 80));
-                    Color buttonDark = isPurchased ? new Color(30, 30, 40) :
-                                      (canAfford ? Color.Lerp(new Color(30, 50, 100), itemColor, 0.2f) : new Color(40, 40, 50));
+                    Color buttonNormal = isPurchased ? UIConstants.ButtonPurchasedNormal : 
+                                        (canAfford ? Color.Lerp(UIConstants.ButtonBlueNormal, itemColor, UIConstants.AnimationLerpSpeed) : UIConstants.ButtonDisabledNormal);
+                    Color buttonDark = isPurchased ? UIConstants.ButtonPurchasedDark :
+                                      (canAfford ? Color.Lerp(UIConstants.ButtonBlueDark, itemColor, UIConstants.AnimationLerpSpeed2) : UIConstants.ButtonDisabledDark);
 
                     drawPixelButton(shopButton, uiManager.ShopButtonsHovered[i] && canAfford && !isPurchased, "", buttonNormal, buttonDark);
 
                     // Pixel art icon (dimmed if purchased)
                     Vector2 iconPos = new Vector2(shopButton.X + 8, shopButton.Y + 10);
-                    Color iconColor = isPurchased ? new Color(80, 80, 90) : 
-                                     (canAfford ? itemColor : new Color(120, 120, 120));
+                    Color iconColor = isPurchased ? UIConstants.IconDisabled : 
+                                     (canAfford ? itemColor : UIConstants.TextGray);
                     ShopIconRenderer.DrawIcon(_spriteBatch, _whitePixel, item, iconPos, iconColor);
 
                     // Item name (dimmed if purchased)
                     Vector2 textSize = _font.MeasureString(itemText);
                     Vector2 textPos = new Vector2(shopButton.X + 35, shopButton.Y + (shopButton.Height - textSize.Y) / 2);
-                    Color textColor = isPurchased ? new Color(100, 100, 110) :
-                                     (canAfford ? Color.White : new Color(120, 120, 120));
-                    _spriteBatch.DrawString(_font, itemText, textPos + new Vector2(1, 1), Color.Black * 0.5f);
+                    Color textColor = isPurchased ? UIConstants.TextGrayDim :
+                                     (canAfford ? Color.White : UIConstants.TextGray);
+                    _spriteBatch.DrawString(_font, itemText, textPos + new Vector2(UIConstants.ShadowOffsetSmall, UIConstants.ShadowOffsetSmall), Color.Black * UIConstants.ShadowOpacity);
                     _spriteBatch.DrawString(_font, itemText, textPos, textColor);
 
                     // Cost or OWNED in corner
@@ -288,13 +288,13 @@ namespace AlleywayMonoGame.UI
                     Vector2 costPos = new Vector2(shopButton.Right - costSize.X - 8, shopButton.Y + (shopButton.Height - costSize.Y) / 2);
                     if (isPurchased)
                     {
-                        _spriteBatch.DrawString(_font, costText, costPos + new Vector2(1, 1), new Color(40, 40, 50));
-                        _spriteBatch.DrawString(_font, costText, costPos, new Color(120, 180, 120));
+                        _spriteBatch.DrawString(_font, costText, costPos + new Vector2(UIConstants.ShadowOffsetSmall, UIConstants.ShadowOffsetSmall), UIConstants.ButtonPurchasedNormal);
+                        _spriteBatch.DrawString(_font, costText, costPos, UIConstants.TextGrayOwned);
                     }
                     else if (canAfford)
                     {
-                        _spriteBatch.DrawString(_font, costText, costPos + new Vector2(1, 1), new Color(100, 80, 0));
-                        _spriteBatch.DrawString(_font, costText, costPos, new Color(255, 215, 0));
+                        _spriteBatch.DrawString(_font, costText, costPos + new Vector2(UIConstants.ShadowOffsetSmall, UIConstants.ShadowOffsetSmall), UIConstants.TextGoldDark);
+                        _spriteBatch.DrawString(_font, costText, costPos, UIConstants.TextGold);
                     }
                 }
 
@@ -314,14 +314,14 @@ namespace AlleywayMonoGame.UI
                         if (width > maxWidth) maxWidth = width;
                     }
                     
-                    int tooltipWidth = (int)maxWidth + 20;
-                    int tooltipHeight = lines.Length * 25 + 10;
+                    int tooltipWidth = (int)maxWidth + UIConstants.TooltipPadding * 2;
+                    int tooltipHeight = lines.Length * UIConstants.TooltipLineHeight + UIConstants.TooltipPadding;
                     int tooltipX = (GameConstants.ScreenWidth - tooltipWidth) / 2;
                     int tooltipY = layout.TooltipY - tooltipHeight;
 
                     // Pixel art tooltip box
-                    _spriteBatch.Draw(_whitePixel, new Rectangle(tooltipX, tooltipY, tooltipWidth, tooltipHeight), new Color(10, 10, 30) * 0.95f);
-                    drawPixelBox(tooltipX, tooltipY, tooltipWidth, tooltipHeight, itemColor, 2);
+                    _spriteBatch.Draw(_whitePixel, new Rectangle(tooltipX, tooltipY, tooltipWidth, tooltipHeight), UIConstants.DialogBackgroundDark * UIConstants.TooltipOpacity);
+                    drawPixelBox(tooltipX, tooltipY, tooltipWidth, tooltipHeight, itemColor, UIConstants.TooltipBorderWidth);
                     
                     // Draw description
                     int lineY = tooltipY + 8;
@@ -329,9 +329,9 @@ namespace AlleywayMonoGame.UI
                     {
                         Vector2 lineSize = _font.MeasureString(line);
                         Vector2 linePos = new Vector2(tooltipX + (tooltipWidth - lineSize.X) / 2, lineY);
-                        _spriteBatch.DrawString(_font, line, linePos + new Vector2(1, 1), Color.Black * 0.7f);
+                        _spriteBatch.DrawString(_font, line, linePos + new Vector2(UIConstants.ShadowOffsetSmall, UIConstants.ShadowOffsetSmall), Color.Black * UIConstants.ScanlineOpacity);
                         _spriteBatch.DrawString(_font, line, linePos, Color.White * 0.9f);
-                        lineY += 25;
+                        lineY += UIConstants.TooltipLineHeight;
                     }
                 }
 
@@ -349,23 +349,23 @@ namespace AlleywayMonoGame.UI
                 
                 // Draw label (always visible when shop appears)
                 Vector2 labelPos = new Vector2(startX, layout.BudgetY);
-                _spriteBatch.DrawString(_font, budgetLabel, labelPos + new Vector2(2, 2), new Color(100, 80, 0));
-                _spriteBatch.DrawString(_font, budgetLabel, labelPos, new Color(255, 215, 0));
+                _spriteBatch.DrawString(_font, budgetLabel, labelPos + new Vector2(UIConstants.ShadowOffsetMedium, UIConstants.ShadowOffsetMedium), UIConstants.TextGoldDark);
+                _spriteBatch.DrawString(_font, budgetLabel, labelPos, UIConstants.TextGold);
                 
                 // Draw value ONLY after delay is over (with pop animation if scale > 1)
                 if (uiManager.SlamDelayTimer <= 0)
                 {
                     Vector2 valuePos = new Vector2(startX + labelSize.X, layout.BudgetY);
                     
-                    // Add glow effect during pop
-                    if (uiManager.SlamScale > 1.2f)
+                    // Glow effect when scale is big
+                    if (uiManager.SlamScale > UIConstants.GlowScaleThreshold)
                     {
-                        float glowSize = uiManager.SlamScale * 1.1f;
-                        _spriteBatch.DrawString(_font, budgetValue, valuePos, new Color(255, 215, 0) * 0.5f, 0f, Vector2.Zero, glowSize, SpriteEffects.None, 0f);
+                        float glowSize = uiManager.SlamScale * UIConstants.GlowScaleMultiplier;
+                        _spriteBatch.DrawString(_font, budgetValue, valuePos, UIConstants.TextGold * UIConstants.ShadowOpacity, 0f, Vector2.Zero, glowSize, SpriteEffects.None, 0f);
                     }
                     
-                    _spriteBatch.DrawString(_font, budgetValue, valuePos + new Vector2(2, 2), new Color(100, 80, 0), 0f, Vector2.Zero, uiManager.SlamScale, SpriteEffects.None, 0f);
-                    _spriteBatch.DrawString(_font, budgetValue, valuePos, new Color(255, 215, 0), 0f, Vector2.Zero, uiManager.SlamScale, SpriteEffects.None, 0f);
+                    _spriteBatch.DrawString(_font, budgetValue, valuePos + new Vector2(UIConstants.ShadowOffsetMedium, UIConstants.ShadowOffsetMedium), UIConstants.TextGoldDark, 0f, Vector2.Zero, uiManager.SlamScale, SpriteEffects.None, 0f);
+                    _spriteBatch.DrawString(_font, budgetValue, valuePos, UIConstants.TextGold, 0f, Vector2.Zero, uiManager.SlamScale, SpriteEffects.None, 0f);
                 }
 
                 // Reroll Button (properly spaced below shop items)
@@ -375,8 +375,8 @@ namespace AlleywayMonoGame.UI
                 uiManager.RerollButton = new Rectangle(rerollX, layout.RerollButtonY, rerollWidth, rerollHeight);
                 bool canAffordReroll = shopService.CanAffordReroll();
                 
-                Color rerollNormal = canAffordReroll ? new Color(150, 100, 200) : new Color(60, 60, 80);
-                Color rerollDark = canAffordReroll ? new Color(80, 50, 100) : new Color(40, 40, 50);
+                Color rerollNormal = canAffordReroll ? UIConstants.ButtonPurpleNormal : UIConstants.ButtonDisabledNormal;
+                Color rerollDark = canAffordReroll ? UIConstants.ButtonPurpleDark : UIConstants.ButtonDisabledDark;
                 
                 drawPixelButton(uiManager.RerollButton, uiManager.RerollButtonHovered && canAffordReroll, "< REROLL $5 >", rerollNormal, rerollDark);
 
@@ -384,7 +384,7 @@ namespace AlleywayMonoGame.UI
                 int nextButtonWidth = 200;
                 int nextButtonHeight = 40;
                 uiManager.NextLevelButton = DialogLayout.CalculateButton(box.X, box.Width, layout.NextButtonY, nextButtonWidth, nextButtonHeight);
-                drawPixelButton(uiManager.NextLevelButton, uiManager.NextLevelButtonHovered, "NEXT LEVEL", new Color(100, 200, 100), new Color(50, 100, 50));
+                drawPixelButton(uiManager.NextLevelButton, uiManager.NextLevelButtonHovered, "NEXT LEVEL", UIConstants.ButtonGreenNormal, UIConstants.ButtonGreenDark);
             }
         }
     }
