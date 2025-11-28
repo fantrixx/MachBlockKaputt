@@ -1,0 +1,3 @@
+D:\c#\MachBlockKaputt\publish\v1.2\AlleywayMonoGame.pdb
+D:\c#\MachBlockKaputt\publish\v1.2\Content\DefaultFont.xnb
+D:\c#\MachBlockKaputt\publish\v1.2\AlleywayMonoGame.exe

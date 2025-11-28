@@ -56,11 +56,40 @@ namespace AlleywayMonoGame.Systems
                 // Paddle collision
                 if (ball.Rect.Intersects(paddle.Bounds))
                 {
+                    // Position ball above paddle
                     ball.Rect = new Rectangle(ball.Rect.X, paddle.Y - ball.Rect.Height - 1, ball.Rect.Width, ball.Rect.Height);
-                    ball.Velocity = new Vector2(ball.Velocity.X, -ball.Velocity.Y);
                     
-                    float hitPos = (ball.Rect.Center.X - paddle.X) / (float)paddle.Width - 0.5f;
-                    ball.Velocity = new Vector2(ball.Velocity.X + hitPos * 300, ball.Velocity.Y);
+                    // Calculate hit position relative to paddle center (-1 to 1)
+                    float hitPos = (ball.Rect.Center.X - paddle.Center.X) / (paddle.Width / 2f);
+                    hitPos = Math.Clamp(hitPos, -1f, 1f);
+                    
+                    // Get incoming angle and speed
+                    float currentSpeed = ball.Velocity.Length();
+                    float baseSpeed = Math.Max(currentSpeed, 300f);
+                    
+                    // Calculate incoming angle (in degrees, 0° = horizontal, 90° = vertical down)
+                    float incomingAngleRad = (float)Math.Atan2(-ball.Velocity.Y, Math.Abs(ball.Velocity.X));
+                    float incomingAngleDeg = incomingAngleRad * 180f / (float)Math.PI;
+                    
+                    // Paddle influence based on hit position
+                    // Center = add up to 30° steeper, Edges = add up to 40° flatter
+                    float paddleInfluence = -hitPos * hitPos * 40f + 30f; // Parabola: center=30°, edges=-10°
+                    
+                    // Combine incoming angle with paddle influence
+                    float outgoingAngleDeg = Math.Clamp(incomingAngleDeg + paddleInfluence, 25f, 85f);
+                    float outgoingAngleRad = outgoingAngleDeg * (float)Math.PI / 180f;
+                    
+                    // Calculate new velocity with reflected angle
+                    float newVelocityY = -baseSpeed * (float)Math.Sin(outgoingAngleRad);
+                    float newVelocityX = baseSpeed * (float)Math.Cos(outgoingAngleRad) * Math.Sign(hitPos);
+                    
+                    // Special case: hit near center, use incoming horizontal direction
+                    if (Math.Abs(hitPos) < 0.1f)
+                    {
+                        newVelocityX = baseSpeed * (float)Math.Cos(outgoingAngleRad) * Math.Sign(ball.Velocity.X != 0 ? ball.Velocity.X : 1);
+                    }
+                    
+                    ball.Velocity = new Vector2(newVelocityX, newVelocityY);
                     result.PaddleHit = true;
                     result.PaddleBounce = true;
                 }
