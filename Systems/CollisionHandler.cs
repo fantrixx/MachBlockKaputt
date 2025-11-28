@@ -56,7 +56,7 @@ namespace AlleywayMonoGame.Systems
             }
             else
             {
-                _audioService.PlayPaddleHit();
+                _audioService.PlayExplosion(); // Use the softer explosion sound for brick hits
             }
 
             return result;
