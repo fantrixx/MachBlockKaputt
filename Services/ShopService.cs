@@ -150,6 +150,7 @@ namespace AlleywayMonoGame.Services
             HasShield = false;
             ShieldBreaking = true;
             ShieldBreakTimer = 2.0f; // 2 seconds animation
+            _purchasedOneTimeItems.Remove(ShopItem.Shield); // Can be bought again after use
         }
 
         public void UpdateShieldBreak(float deltaTime)
@@ -175,14 +176,15 @@ namespace AlleywayMonoGame.Services
             var allItems = new List<ShopItem>
             {
                 ShopItem.SpeedUpgrade,
-                ShopItem.ExtraBall,
                 ShopItem.ShootMode,
                 ShopItem.PaddleSize,
                 ShopItem.Shield
             };
 
-            // Filter out already purchased one-time items
-            var availableItems = allItems.Where(item => !_purchasedOneTimeItems.Contains(item)).ToList();
+            // Filter out already purchased one-time items (ShootMode, Shield)
+            var availableItems = allItems.Where(item => 
+                !_purchasedOneTimeItems.Contains(item)
+            ).ToList();
 
             // Shuffle and take first 'count' items
             var shuffled = availableItems.OrderBy(x => _random.Next()).ToArray();

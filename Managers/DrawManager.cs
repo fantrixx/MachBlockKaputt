@@ -410,88 +410,112 @@ namespace AlleywayMonoGame.Managers
 
             if (_font == null) return;
 
-            int textY = infoBarY + 12;
+            // Grid-based layout (scalable with screen width)
+            // Divide info bar into 3 columns: LEFT (30%), MIDDLE (40%), RIGHT (30%)
+            int leftColumnStart = (int)(GameConstants.ScreenWidth * 0.05f); // 5% margin
             
-            // LEFT: Paddle Stats
-            int leftX = 15;
+            int middleColumnStart = (int)(GameConstants.ScreenWidth * 0.30f);
+            int middleColumnWidth = (int)(GameConstants.ScreenWidth * 0.40f);
             
-            // Paddle size indicator
+            int rightColumnStart = (int)(GameConstants.ScreenWidth * 0.70f);
+            int rightColumnWidth = (int)(GameConstants.ScreenWidth * 0.25f);
+            
+            int textY = infoBarY + (GameConstants.InfoBarHeight / 2) - 8; // Vertically centered
+            
+            // LEFT COLUMN: Paddle Stats
             float sizePercent = (_shopService.PaddleSizeMultiplier - 1.0f) * 100f;
             string sizeText = $"SIZE: {sizePercent:F0}%";
-            _spriteBatch.DrawString(_font, sizeText, new Vector2(leftX, textY), new Color(150, 255, 150));
+            _spriteBatch.DrawString(_font, sizeText, new Vector2(leftColumnStart, textY), new Color(150, 255, 150));
             
-            // Paddle speed indicator
+            // Calculate spacing for speed text
+            Vector2 sizeTextSize = _font.MeasureString(sizeText);
             float speedPercent = (_shopService.PaddleSpeedMultiplier - 1.0f) * 100f;
             string speedText = $"SPEED: {speedPercent:F0}%";
-            _spriteBatch.DrawString(_font, speedText, new Vector2(leftX, textY + 15), new Color(100, 200, 255));
+            float speedX = leftColumnStart + sizeTextSize.X + 20; // 20px spacing
+            _spriteBatch.DrawString(_font, speedText, new Vector2(speedX, textY), new Color(100, 200, 255));
             
-            // MIDDLE: Purchased Items (Icons)
-            int middleStartX = 250;
+            // MIDDLE COLUMN: Purchased Items (Icons) - centered in middle column
             int iconSpacing = 35;
-            int iconIndex = 0;
+            int iconCount = 0;
             
-            // Show active one-time items
-            if (_shopService.StartWithShootMode)
+            // Count items first
+            if (_shopService.StartWithShootMode) iconCount++;
+            if (_shopService.HasShield || _shopService.ShieldBreaking) iconCount++;
+            if (_shopService.ExtraBallsPurchased > 0) iconCount++;
+            
+            if (iconCount > 0)
             {
-                DrawPurchasedItemIcon(ShopItem.ShootMode, middleStartX + iconIndex * iconSpacing, infoBarY + 10);
-                iconIndex++;
+                // Center icons in middle column
+                int totalIconWidth = iconCount * 24 + (iconCount - 1) * (iconSpacing - 24);
+                int middleStartX = middleColumnStart + (middleColumnWidth - totalIconWidth) / 2;
+                int iconIndex = 0;
+                
+                // Draw icons
+                if (_shopService.StartWithShootMode)
+                {
+                    DrawPurchasedItemIcon(ShopItem.ShootMode, middleStartX + iconIndex * iconSpacing, infoBarY + 10);
+                    iconIndex++;
+                }
+                
+                if (_shopService.HasShield || _shopService.ShieldBreaking)
+                {
+                    float alpha = _shopService.ShieldBreaking ? (0.3f + (float)Math.Sin(_scoreService.GameTimer * 10f) * 0.3f) : 1f;
+                    DrawPurchasedItemIcon(ShopItem.Shield, middleStartX + iconIndex * iconSpacing, infoBarY + 10, alpha);
+                    iconIndex++;
+                }
+                
+                if (_shopService.ExtraBallsPurchased > 0)
+                {
+                    DrawPurchasedItemIcon(ShopItem.ExtraBall, middleStartX + iconIndex * iconSpacing, infoBarY + 10);
+                    // Show count
+                    string countText = $"x{_shopService.ExtraBallsPurchased}";
+                    Vector2 countPos = new Vector2(middleStartX + iconIndex * iconSpacing + 18, infoBarY + 25);
+                    _spriteBatch.DrawString(_font, countText, countPos + new Vector2(1, 1), Color.Black * 0.7f);
+                    _spriteBatch.DrawString(_font, countText, countPos, Color.White);
+                    iconIndex++;
+                }
             }
-            
-            if (_shopService.HasShield || _shopService.ShieldBreaking)
+            else
             {
-                float alpha = _shopService.ShieldBreaking ? (0.3f + (float)Math.Sin(_scoreService.GameTimer * 10f) * 0.3f) : 1f;
-                DrawPurchasedItemIcon(ShopItem.Shield, middleStartX + iconIndex * iconSpacing, infoBarY + 10, alpha);
-                iconIndex++;
-            }
-            
-            if (_shopService.ExtraBallsPurchased > 0)
-            {
-                DrawPurchasedItemIcon(ShopItem.ExtraBall, middleStartX + iconIndex * iconSpacing, infoBarY + 10);
-                // Show count
-                string countText = $"x{_shopService.ExtraBallsPurchased}";
-                Vector2 countPos = new Vector2(middleStartX + iconIndex * iconSpacing + 18, infoBarY + 25);
-                _spriteBatch.DrawString(_font, countText, countPos + new Vector2(1, 1), Color.Black * 0.7f);
-                _spriteBatch.DrawString(_font, countText, countPos, Color.White);
-                iconIndex++;
-            }
-            
-            if (iconIndex == 0)
-            {
-                // No items purchased
+                // No items purchased - center text
                 string noItemsText = "NO ITEMS";
                 Vector2 noItemsSize = _font.MeasureString(noItemsText);
-                _spriteBatch.DrawString(_font, noItemsText, new Vector2(middleStartX + 20, textY + 5), Color.Gray * 0.5f);
+                float noItemsX = middleColumnStart + (middleColumnWidth - noItemsSize.X) / 2;
+                _spriteBatch.DrawString(_font, noItemsText, new Vector2(noItemsX, textY), Color.Gray * 0.5f);
             }
             
-            // RIGHT: Active Mode
-            int rightX = GameConstants.ScreenWidth - 180;
+            // RIGHT COLUMN: Active Mode - centered in right column
+            string modeText = "";
+            Color modeColor = Color.Gray;
             
             if (_powerUpManager.CanShoot)
             {
                 float timeLeft = _powerUpManager.ShootPowerTimer;
-                string modeText = $"SHOOT: {timeLeft:F1}s";
-                Color modeColor = timeLeft < 2f ? Color.Lerp(Color.Red, Color.Yellow, (float)Math.Sin(_scoreService.GameTimer * 8f) * 0.5f + 0.5f) : new Color(255, 100, 100);
-                _spriteBatch.DrawString(_font, modeText, new Vector2(rightX, textY), modeColor);
+                modeText = $"SHOOT: {timeLeft:F1}s";
+                modeColor = timeLeft < 2f ? Color.Lerp(Color.Red, Color.Yellow, (float)Math.Sin(_scoreService.GameTimer * 8f) * 0.5f + 0.5f) : new Color(255, 100, 100);
             }
             else if (_powerUpManager.BigPaddleActive)
             {
                 float timeLeft = _powerUpManager.BigPaddleTimer;
-                string modeText = $"BIG: {timeLeft:F1}s";
-                Color modeColor = timeLeft < 2f ? Color.Lerp(Color.Green, Color.Yellow, (float)Math.Sin(_scoreService.GameTimer * 8f) * 0.5f + 0.5f) : new Color(150, 255, 150);
-                _spriteBatch.DrawString(_font, modeText, new Vector2(rightX, textY), modeColor);
+                modeText = $"BIG: {timeLeft:F1}s";
+                modeColor = timeLeft < 2f ? Color.Lerp(Color.Green, Color.Yellow, (float)Math.Sin(_scoreService.GameTimer * 8f) * 0.5f + 0.5f) : new Color(150, 255, 150);
             }
             else if (_powerUpManager.MultiBallChaosActive)
             {
-                string modeText = "CHAOS!";
+                modeText = "CHAOS!";
                 float flicker = (float)Math.Sin(_scoreService.GameTimer * 6f) * 0.5f + 0.5f;
-                Color modeColor = Color.Lerp(Color.Magenta, Color.Cyan, flicker);
-                _spriteBatch.DrawString(_font, modeText, new Vector2(rightX + 30, textY), modeColor);
+                modeColor = Color.Lerp(Color.Magenta, Color.Cyan, flicker);
             }
             else
             {
-                string modeText = "NORMAL";
-                _spriteBatch.DrawString(_font, modeText, new Vector2(rightX + 20, textY + 5), Color.Gray * 0.6f);
+                modeText = "NORMAL";
+                modeColor = Color.Gray * 0.6f;
             }
+            
+            // Center mode text in right column
+            Vector2 modeTextSize = _font.MeasureString(modeText);
+            float modeX = rightColumnStart + (rightColumnWidth - modeTextSize.X) / 2;
+            _spriteBatch.DrawString(_font, modeText, new Vector2(modeX, textY), modeColor);
         }
 
         private void DrawPurchasedItemIcon(ShopItem item, int x, int y, float alpha = 1f)

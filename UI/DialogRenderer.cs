@@ -207,42 +207,28 @@ namespace AlleywayMonoGame.UI
             _spriteBatch.Draw(_whitePixel, new Rectangle(bonusBoxX, layout.BonusBoxY, bonusBoxWidth, 60), new Color(20, 20, 40));
             drawPixelBox(bonusBoxX, layout.BonusBoxY, bonusBoxWidth, 60, new Color(255, 215, 0), 2);
 
-            string calc = $"Time Bonus: $100 - {(int)scoreService.GameTimer}s = ${uiManager.LevelCompleteTimeBonus}";
+            // Time Bonus Calculation with animated money
+            int displayedBonus = uiManager.MoneyAnimationDone ? uiManager.LevelCompleteTimeBonus : uiManager.AnimatedMoney;
+            string calc = $"Time Bonus: $100 - {(int)scoreService.GameTimer}s = ${displayedBonus}";
             Vector2 calcSize = _font.MeasureString(calc);
-            _spriteBatch.DrawString(_font, calc, new Vector2((GameConstants.ScreenWidth - calcSize.X) / 2, layout.BonusBoxY + 10), new Color(255, 215, 0));
+            
+            // Highlight the bonus amount during animation
+            Color calcColor = uiManager.MoneyAnimationDone ? new Color(255, 215, 0) : Color.Lerp(Color.Gray, new Color(255, 215, 0), (float)uiManager.AnimatedMoney / uiManager.LevelCompleteTimeBonus);
+            _spriteBatch.DrawString(_font, calc, new Vector2((GameConstants.ScreenWidth - calcSize.X) / 2, layout.BonusBoxY + 10), calcColor);
 
-            // Counting animation
-            if (!uiManager.MoneyAnimationDone)
+            // Purchase animation (show anytime after money animation)
+            if (uiManager.MoneyAnimationDone && uiManager.PurchaseAnimationActive && uiManager.PurchaseAnimationTimer < 0.5f)
             {
-                string counting = $"Counting... ${uiManager.AnimatedMoney}";
-                Vector2 countingSize = _font.MeasureString(counting);
-                _spriteBatch.DrawString(_font, counting, new Vector2((GameConstants.ScreenWidth - countingSize.X) / 2, layout.BonusBoxY + 35), Color.Gray);
+                string costText = $"-${uiManager.PurchaseCostAmount}";
+                Vector2 costPos = new Vector2(uiManager.PurchaseCostX, uiManager.PurchaseCostY);
+                float trailAlpha = 1f - (uiManager.PurchaseAnimationTimer / 0.5f);
+
+                _spriteBatch.DrawString(_font, costText, costPos + new Vector2(2, 2), new Color(100, 0, 0) * trailAlpha);
+                _spriteBatch.DrawString(_font, costText, costPos, Color.Red * trailAlpha);
             }
 
-            // Balance Display
+            // Shop Section - appears immediately after counting, before pop animation
             if (uiManager.MoneyAnimationDone)
-            {
-                string balance = $"${shopService.BankBalance}";
-                Vector2 balanceSize = _font.MeasureString(balance);
-                Vector2 balancePos = new Vector2((GameConstants.ScreenWidth - balanceSize.X * uiManager.SlamScale) / 2 + uiManager.BalanceShake, layout.BalanceY + uiManager.SlamY);
-
-                _spriteBatch.DrawString(_font, balance, balancePos + new Vector2(2, 2), new Color(100, 80, 0), 0f, Vector2.Zero, uiManager.SlamScale, SpriteEffects.None, 0f);
-                _spriteBatch.DrawString(_font, balance, balancePos, new Color(255, 215, 0), 0f, Vector2.Zero, uiManager.SlamScale, SpriteEffects.None, 0f);
-
-                // Purchase animation
-                if (uiManager.PurchaseAnimationActive && uiManager.PurchaseAnimationTimer < 0.5f)
-                {
-                    string costText = $"-${uiManager.PurchaseCostAmount}";
-                    Vector2 costPos = new Vector2(uiManager.PurchaseCostX, uiManager.PurchaseCostY);
-                    float trailAlpha = 1f - (uiManager.PurchaseAnimationTimer / 0.5f);
-
-                    _spriteBatch.DrawString(_font, costText, costPos + new Vector2(2, 2), new Color(100, 0, 0) * trailAlpha);
-                    _spriteBatch.DrawString(_font, costText, costPos, Color.Red * trailAlpha);
-                }
-            }
-
-            // Shop Section
-            if (uiManager.MoneyAnimationDone && uiManager.SlamAnimationDone)
             {
                 string shopTitle = "SHOP";
                 Vector2 shopTitleSize = _font.MeasureString(shopTitle);
@@ -262,7 +248,7 @@ namespace AlleywayMonoGame.UI
                 int buttonSpacing = 10;
 
                 // Shop Items
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < currentShopItems.Length; i++)
                 {
                     ShopItem item = currentShopItems[i];
                     bool isPurchased = shopService.IsPurchased(item);
@@ -347,6 +333,39 @@ namespace AlleywayMonoGame.UI
                         _spriteBatch.DrawString(_font, line, linePos, Color.White * 0.9f);
                         lineY += 25;
                     }
+                }
+
+                // Budget Display (between shop and reroll button)
+                // Label always visible, number pops after 1 second delay
+                string budgetLabel = "BUDGET: ";
+                string budgetValue = $"${shopService.BankBalance}";
+                
+                Vector2 labelSize = _font.MeasureString(budgetLabel);
+                Vector2 valueSize = _font.MeasureString(budgetValue);
+                
+                // Center the whole thing
+                float totalWidth = labelSize.X + valueSize.X;
+                float startX = (GameConstants.ScreenWidth - totalWidth) / 2;
+                
+                // Draw label (always visible when shop appears)
+                Vector2 labelPos = new Vector2(startX, layout.BudgetY);
+                _spriteBatch.DrawString(_font, budgetLabel, labelPos + new Vector2(2, 2), new Color(100, 80, 0));
+                _spriteBatch.DrawString(_font, budgetLabel, labelPos, new Color(255, 215, 0));
+                
+                // Draw value ONLY after delay is over (with pop animation if scale > 1)
+                if (uiManager.SlamDelayTimer <= 0)
+                {
+                    Vector2 valuePos = new Vector2(startX + labelSize.X, layout.BudgetY);
+                    
+                    // Add glow effect during pop
+                    if (uiManager.SlamScale > 1.2f)
+                    {
+                        float glowSize = uiManager.SlamScale * 1.1f;
+                        _spriteBatch.DrawString(_font, budgetValue, valuePos, new Color(255, 215, 0) * 0.5f, 0f, Vector2.Zero, glowSize, SpriteEffects.None, 0f);
+                    }
+                    
+                    _spriteBatch.DrawString(_font, budgetValue, valuePos + new Vector2(2, 2), new Color(100, 80, 0), 0f, Vector2.Zero, uiManager.SlamScale, SpriteEffects.None, 0f);
+                    _spriteBatch.DrawString(_font, budgetValue, valuePos, new Color(255, 215, 0), 0f, Vector2.Zero, uiManager.SlamScale, SpriteEffects.None, 0f);
                 }
 
                 // Reroll Button (properly spaced below shop items)

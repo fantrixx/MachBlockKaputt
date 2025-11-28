@@ -101,7 +101,7 @@ namespace AlleywayMonoGame.Controllers
             // Create new paddle
             result.NewPaddle = new Paddle(
                 GameConstants.ScreenWidth / 2 - GameConstants.PaddleWidth / 2,
-                GameConstants.ScreenHeight - 40,
+                GameConstants.GameAreaBottom - GameConstants.PaddleBottomMargin,
                 GameConstants.PaddleWidth,
                 GameConstants.PaddleHeight,
                 GameConstants.PaddleSpeed,
@@ -125,8 +125,10 @@ namespace AlleywayMonoGame.Controllers
             if (_shopService.StartWithShootMode)
             {
                 startWithShootMode = true;
-                _shopService.ResetShootMode();
-                // Set flag so it will be activated after ball launch
+                // Activate shoot mode immediately so it shows in the info bar
+                _powerUpManager.CanShoot = true;
+                _powerUpManager.ShootPowerTimer = 7f; // Give it the full duration
+                _powerUpManager.CannonExtension = 0f; // Will extend when ball is launched
             }
 
             _scoreService.StartTimer();
@@ -150,7 +152,7 @@ namespace AlleywayMonoGame.Controllers
             
             var paddle = new Paddle(
                 GameConstants.ScreenWidth / 2 - GameConstants.PaddleWidth / 2,
-                GameConstants.ScreenHeight - 40,
+                GameConstants.GameAreaBottom - GameConstants.PaddleBottomMargin,
                 GameConstants.PaddleWidth,
                 GameConstants.PaddleHeight,
                 GameConstants.PaddleSpeed,
@@ -251,7 +253,7 @@ namespace AlleywayMonoGame.Controllers
             return new Ball(
                 new Rectangle(
                     paddle.Center.X - GameConstants.BallSize / 2,
-                    paddle.Y - GameConstants.BallSize - 1,
+                    paddle.Y - GameConstants.BallSize - GameConstants.BallPaddleGap,
                     GameConstants.BallSize,
                     GameConstants.BallSize
                 ),
@@ -271,7 +273,7 @@ namespace AlleywayMonoGame.Controllers
             return new Ball(
                 new Rectangle(
                     GameConstants.ScreenWidth / 2 - GameConstants.BallSize / 2,
-                    paddle.Y - GameConstants.BallSize - 1,
+                    paddle.Y - GameConstants.BallSize - GameConstants.BallPaddleGap,
                     GameConstants.BallSize,
                     GameConstants.BallSize
                 ),

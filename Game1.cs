@@ -26,6 +26,13 @@ namespace AlleywayMonoGame
         // Core MonoGame components
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch = null!;
+        private RenderTarget2D _renderTarget = null!;
+        
+        // Fullscreen and scaling
+        private bool _isFullscreen = false;
+        private KeyboardState _previousKeyboardState;
+        private Matrix _scaleMatrix;
+        private Rectangle _renderDestination;
 
         // Services (Business Logic)
         private AudioService _audioService = null!;
@@ -85,6 +92,11 @@ namespace AlleywayMonoGame
 
             _graphics.PreferredBackBufferWidth = GameConstants.ScreenWidth;
             _graphics.PreferredBackBufferHeight = GameConstants.ScreenHeight;
+            _graphics.SynchronizeWithVerticalRetrace = true;
+            
+            // Allow window resizing and maximizing
+            Window.AllowUserResizing = true;
+            Window.ClientSizeChanged += OnClientSizeChanged;
         }
 
         protected override void Initialize()
@@ -110,7 +122,7 @@ namespace AlleywayMonoGame
             // Initialize paddle
             _paddle = new Paddle(
                 GameConstants.ScreenWidth / 2 - GameConstants.PaddleWidth / 2,
-                GameConstants.ScreenHeight - 40,
+                GameConstants.GameAreaBottom - GameConstants.PaddleBottomMargin,
                 GameConstants.PaddleWidth,
                 GameConstants.PaddleHeight,
                 GameConstants.PaddleSpeed,
@@ -132,6 +144,21 @@ namespace AlleywayMonoGame
         protected override void LoadContent()
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
+            
+            // Create render target for scaling
+            _renderTarget = new RenderTarget2D(
+                GraphicsDevice,
+                GameConstants.ScreenWidth,
+                GameConstants.ScreenHeight,
+                false,
+                SurfaceFormat.Color,
+                DepthFormat.None,
+                0,
+                RenderTargetUsage.PreserveContents
+            );
+            
+            // Initialize scale matrix
+            UpdateScaleMatrix();
 
             // Initialize audio service
             _audioService = new AudioService();
@@ -233,8 +260,18 @@ namespace AlleywayMonoGame
 
         protected override void Update(GameTime gameTime)
         {
+            KeyboardState keyboardState = Keyboard.GetState();
+            
+            // Toggle fullscreen with F11
+            if (keyboardState.IsKeyDown(Keys.F11) && !_previousKeyboardState.IsKeyDown(Keys.F11))
+            {
+                ToggleFullscreen();
+            }
+            
+            _previousKeyboardState = keyboardState;
+            
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || 
-                Keyboard.GetState().IsKeyDown(Keys.Escape))
+                keyboardState.IsKeyDown(Keys.Escape))
                 Exit();
 
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -312,38 +349,52 @@ namespace AlleywayMonoGame
                     _uiManager.ChargeUpSoundPlayed = true;
                 }
                 
-                float animSpeed = dt * 200f;
-                _uiManager.AnimatedMoney += (int)animSpeed;
-                if (_uiManager.AnimatedMoney >= _uiManager.LevelCompleteTimeBonus)
+                // Slow down animation to match 1.5s sound duration
+                float timeElapsed = _uiManager.AnimationTimer - 1f;
+                float animDuration = 1.5f; // Match sound duration
+                float progress = Math.Min(timeElapsed / animDuration, 1f);
+                
+                _uiManager.AnimatedMoney = (int)(_uiManager.LevelCompleteTimeBonus * progress);
+                
+                if (progress >= 1f)
                 {
                     _uiManager.AnimatedMoney = _uiManager.LevelCompleteTimeBonus;
                     _uiManager.MoneyAnimationDone = true;
+                    _uiManager.SlamDelayTimer = 1.0f; // 1 second delay before pop
                     _shopService.AddMoney(_uiManager.LevelCompleteTimeBonus);
-                    
-                    // Don't start slam animation yet - wait a frame
                 }
             }
 
-            // Start slam animation after money counting is complete
-            if (_uiManager.MoneyAnimationDone && !_uiManager.SlamAnimationDone)
+            // Delay before pop animation starts
+            if (_uiManager.MoneyAnimationDone && _uiManager.SlamDelayTimer > 0)
             {
-                // Initialize slam on first frame after money animation
-                if (_uiManager.SlamY == 0 && _uiManager.SlamVelocity == 0 && _uiManager.SlamScale == 1f)
-                {
-                    _uiManager.SlamY = -100f;
-                    _uiManager.SlamVelocity = 0f;
-                }
+                float prevTimer = _uiManager.SlamDelayTimer;
+                _uiManager.SlamDelayTimer -= dt;
                 
-                _uiManager.UpdateSlamAnimation(dt);
-                
-                // Visual effects for slam animation - check if just landed
-                if (_uiManager.SlamY == 0 && Math.Abs(_uiManager.SlamVelocity) > 50f)
+                // Trigger pop animation when delay ends (only once)
+                if (prevTimer > 0 && _uiManager.SlamDelayTimer <= 0 && !_uiManager.SlamAnimationDone)
                 {
-                    // Calculate position based on dialog layout
+                    _uiManager.SlamScale = 2.5f; // Start big
+                    _audioService.PlayPowerUp(); // Pop sound
+                    
+                    // Particle effect at budget position
                     var layout = new DialogLayout.LevelCompleteLayout();
-                    Vector2 impactPos = new Vector2(GameConstants.ScreenWidth / 2, layout.BalanceY + 15);
-                    _particleSystem.SpawnDustCloud(impactPos, 25);
-                    _audioService.PlayPaddleHit(); // Impact sound
+                    Vector2 popPos = new Vector2(GameConstants.ScreenWidth / 2, layout.BudgetY);
+                    _particleSystem.SpawnExplosion(popPos, 15, new Color(255, 215, 0));
+                }
+            }
+
+            // Update pop animation (scale down)
+            if (_uiManager.MoneyAnimationDone && _uiManager.SlamDelayTimer <= 0 && !_uiManager.SlamAnimationDone)
+            {
+                if (_uiManager.SlamScale > 1f)
+                {
+                    _uiManager.SlamScale -= dt * 4f; // Scale down quickly
+                    if (_uiManager.SlamScale <= 1f)
+                    {
+                        _uiManager.SlamScale = 1f;
+                        _uiManager.SlamAnimationDone = true;
+                    }
                 }
             }
 
@@ -566,11 +617,16 @@ namespace AlleywayMonoGame
                         ball.IsLaunched = true;
                         _scoreService.StartTimer();
                         
-                        // Activate shoot mode if purchased (only on first ball launch)
+                        // Reset shop flag when ball is launched (shoot mode already activated in GameFlowController)
                         if (_startWithShootMode)
                         {
-                            _powerUpManager.ActivateShootMode(startWithShootMode: true);
                             _startWithShootMode = false;
+                            _shopService.ResetShootMode(); // Reset the shop service flag
+                            // CanShoot is already true from GameFlowController, just ensure cannon extends
+                            if (_powerUpManager.CanShoot)
+                            {
+                                _powerUpManager.CannonExtension = 0f; // Start extension animation
+                            }
                         }
                     }
                 }
@@ -813,7 +869,7 @@ namespace AlleywayMonoGame
             var ball = new Ball(
                 new Rectangle(
                     GameConstants.ScreenWidth / 2 - GameConstants.BallSize / 2,
-                    GameConstants.ScreenHeight - 40 - GameConstants.BallSize - 1,
+                    GameConstants.GameAreaBottom - GameConstants.PaddleBottomMargin - GameConstants.BallSize - GameConstants.BallPaddleGap,
                     GameConstants.BallSize,
                     GameConstants.BallSize
                 ),
@@ -935,10 +991,10 @@ namespace AlleywayMonoGame
         private void SetupGameOverUI()
         {
             // Grid-basiertes Layout: Buttons ganz unten positionieren
-            int buttonWidth = 150;
-            int buttonHeight = 50;
-            int buttonSpacing = 20;
-            int buttonY = GameConstants.ScreenHeight - 80; // Fester Abstand vom unteren Rand
+            int buttonWidth = GameConstants.ButtonWidth;
+            int buttonHeight = GameConstants.ButtonHeight;
+            int buttonSpacing = GameConstants.ButtonSpacing;
+            int buttonY = GameConstants.ScreenHeight - GameConstants.GameOverButtonY;
             
             _uiManager.RetryButton = new Rectangle(
                 GameConstants.ScreenWidth / 2 - buttonWidth - buttonSpacing / 2,
@@ -956,18 +1012,18 @@ namespace AlleywayMonoGame
 
         private void SetupVictoryUI()
         {
-            int buttonWidth = 150;
-            int buttonHeight = 50;
-            int buttonSpacing = 20;
+            int buttonWidth = GameConstants.ButtonWidth;
+            int buttonHeight = GameConstants.ButtonHeight;
+            int buttonSpacing = GameConstants.ButtonSpacing;
             _uiManager.VictoryRetryButton = new Rectangle(
                 GameConstants.ScreenWidth / 2 - buttonWidth - buttonSpacing / 2,
-                GameConstants.ScreenHeight - 120,
+                GameConstants.ScreenHeight - GameConstants.GameOverButtonY,
                 buttonWidth,
                 buttonHeight
             );
             _uiManager.VictoryQuitButton = new Rectangle(
                 GameConstants.ScreenWidth / 2 + buttonSpacing / 2,
-                GameConstants.ScreenHeight - 120,
+                GameConstants.ScreenHeight - GameConstants.GameOverButtonY,
                 buttonWidth,
                 buttonHeight
             );
@@ -1012,6 +1068,8 @@ namespace AlleywayMonoGame
 
         protected override void Draw(GameTime gameTime)
         {
+            // Render to render target at native resolution
+            GraphicsDevice.SetRenderTarget(_renderTarget);
             GraphicsDevice.Clear(Color.Black);
 
             _spriteBatch.Begin();
@@ -1035,6 +1093,14 @@ namespace AlleywayMonoGame
                 }
             }
 
+            _spriteBatch.End();
+
+            // Render the render target to back buffer with scaling
+            GraphicsDevice.SetRenderTarget(null);
+            GraphicsDevice.Clear(Color.Black);
+
+            _spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.Opaque, SamplerState.PointClamp);
+            _spriteBatch.Draw(_renderTarget, _renderDestination, Color.White);
             _spriteBatch.End();
 
             base.Draw(gameTime);
@@ -1098,6 +1164,62 @@ namespace AlleywayMonoGame
                     }
                 }
                 _spriteBatch.DrawString(_font, powerUpText, textPos, Color.Yellow * alpha);
+            }
+        }
+
+        #endregion
+
+        #region Fullscreen and Scaling
+
+        private void ToggleFullscreen()
+        {
+            _isFullscreen = !_isFullscreen;
+
+            if (_isFullscreen)
+            {
+                // Switch to fullscreen
+                _graphics.PreferredBackBufferWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
+                _graphics.PreferredBackBufferHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
+                _graphics.IsFullScreen = true;
+            }
+            else
+            {
+                // Switch to windowed mode
+                _graphics.PreferredBackBufferWidth = GameConstants.ScreenWidth;
+                _graphics.PreferredBackBufferHeight = GameConstants.ScreenHeight;
+                _graphics.IsFullScreen = false;
+            }
+
+            _graphics.ApplyChanges();
+            UpdateScaleMatrix();
+        }
+
+        private void UpdateScaleMatrix()
+        {
+            int backBufferWidth = GraphicsDevice.PresentationParameters.BackBufferWidth;
+            int backBufferHeight = GraphicsDevice.PresentationParameters.BackBufferHeight;
+
+            // Calculate scale to fit render target into back buffer while maintaining aspect ratio
+            float scaleX = (float)backBufferWidth / GameConstants.ScreenWidth;
+            float scaleY = (float)backBufferHeight / GameConstants.ScreenHeight;
+            float scale = Math.Min(scaleX, scaleY);
+
+            // Calculate destination rectangle (centered)
+            int scaledWidth = (int)(GameConstants.ScreenWidth * scale);
+            int scaledHeight = (int)(GameConstants.ScreenHeight * scale);
+            int offsetX = (backBufferWidth - scaledWidth) / 2;
+            int offsetY = (backBufferHeight - scaledHeight) / 2;
+
+            _renderDestination = new Rectangle(offsetX, offsetY, scaledWidth, scaledHeight);
+            _scaleMatrix = Matrix.CreateScale(scale);
+        }
+
+        private void OnClientSizeChanged(object? sender, EventArgs e)
+        {
+            // Update scale matrix when window is resized or maximized
+            if (_renderTarget != null)
+            {
+                UpdateScaleMatrix();
             }
         }
 

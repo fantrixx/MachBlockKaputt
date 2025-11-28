@@ -54,6 +54,7 @@ namespace AlleywayMonoGame.UI
             public int ShopTitleY { get; }
             public int ShopBoxY { get; }
             public int ShopItemsStartY { get; }
+            public int BudgetY { get; }
             public int RerollButtonY { get; }
             public int NextButtonY { get; }
             public int TooltipY { get; }
@@ -62,15 +63,15 @@ namespace AlleywayMonoGame.UI
             {
                 // Calculate total required height
                 int titleHeight = 50;
-                int bonusBoxHeight = 80;
-                int balanceHeight = 60;
+                int bonusBoxHeight = 50;
                 int shopTitleHeight = 40;
-                int shopBoxHeight = 180; // 3 items * (35 + 10 spacing)
+                int shopBoxHeight = 165; // 3 items * (35 + 10 spacing)
+                int budgetHeight = 40;
                 int rerollHeight = 45;
                 int nextButtonHeight = 50;
                 
-                int totalHeight = Padding * 2 + titleHeight + bonusBoxHeight + balanceHeight + 
-                                 shopTitleHeight + shopBoxHeight + rerollHeight + nextButtonHeight;
+                int totalHeight = Padding * 2 + titleHeight + bonusBoxHeight + 
+                                 shopTitleHeight + shopBoxHeight + budgetHeight + rerollHeight + nextButtonHeight;
                 
                 DialogBox = CalculateDialogBox(500, totalHeight);
                 
@@ -80,17 +81,17 @@ namespace AlleywayMonoGame.UI
                 y += titleHeight;
                 BonusBoxY = y;
                 
-                y += bonusBoxHeight;
-                BalanceY = y;
-                
-                y += balanceHeight;
+                y += bonusBoxHeight + SectionSpacing;
                 ShopTitleY = y;
                 
                 y += shopTitleHeight;
                 ShopBoxY = y;
                 ShopItemsStartY = ShopBoxY + 15;
                 
-                y += shopBoxHeight + Padding;
+                y += shopBoxHeight + ItemSpacing;
+                BudgetY = y;
+                
+                y += budgetHeight;
                 RerollButtonY = y;
                 
                 y += rerollHeight;

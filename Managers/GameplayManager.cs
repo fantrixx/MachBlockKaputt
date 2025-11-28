@@ -221,7 +221,7 @@ namespace AlleywayMonoGame.Managers
             var ball = new Ball(
                 new Rectangle(
                     GameConstants.ScreenWidth / 2 - GameConstants.BallSize / 2,
-                    GameConstants.ScreenHeight - 40 - GameConstants.BallSize - 1,
+                    GameConstants.GameAreaBottom - GameConstants.PaddleBottomMargin - GameConstants.BallSize - GameConstants.BallPaddleGap,
                     GameConstants.BallSize,
                     GameConstants.BallSize
                 ),

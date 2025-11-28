@@ -359,7 +359,7 @@ namespace AlleywayMonoGame.Services
 
             WriteWavHeader(bw, samples);
 
-            double amplitude = 32760 * 0.6f;
+            double amplitude = 32760 * 0.9f;
             double t = 0;
             double dt = 1.0 / sampleRate;
             

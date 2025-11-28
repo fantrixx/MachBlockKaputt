@@ -17,6 +17,7 @@ namespace AlleywayMonoGame.Managers
         public bool ChargeUpSoundPlayed { get; set; }
         
         // Money slam animation
+        public float SlamDelayTimer { get; set; }
         public float SlamY { get; set; }
         public float SlamVelocity { get; set; }
         public float SlamScale { get; set; } = 1f;
@@ -61,6 +62,7 @@ namespace AlleywayMonoGame.Managers
             MoneyAnimationDone = false;
             AnimatedMoney = 0;
             ChargeUpSoundPlayed = false;
+            SlamDelayTimer = 0f;
             SlamY = 0f;
             SlamVelocity = 0f;
             SlamScale = 1f;

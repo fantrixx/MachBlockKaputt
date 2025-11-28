@@ -16,9 +16,9 @@ namespace AlleywayMonoGame.Managers
         private readonly Random _random;
         private readonly AudioService _audioService;
         private float _spawnTimer;
-        private const float MinSpawnInterval = 15f; // Minimum 15 seconds between spawns
-        private const float MaxSpawnInterval = 30f; // Maximum 30 seconds
-        private const float SpawnChance = 0.1f; // 10% chance
+        private const float MinSpawnInterval = 50f; // Minimum 50 seconds between checks
+        private const float MaxSpawnInterval = 70f; // Maximum 70 seconds
+        private const float SpawnChance = 0.5f; // 50% chance - results in ~1 UFO per minute on average
         
         public bool UFOActive => _ufo.IsActive;
         public UFO CurrentUFO => _ufo;
