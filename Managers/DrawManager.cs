@@ -425,14 +425,14 @@ namespace AlleywayMonoGame.Managers
             // LEFT COLUMN: Paddle Stats
             float sizePercent = (_shopService.PaddleSizeMultiplier - 1.0f) * 100f;
             string sizeText = $"SIZE: {sizePercent:F0}%";
-            _spriteBatch.DrawString(_font, sizeText, new Vector2(leftColumnStart, textY), new Color(150, 255, 150));
+            _spriteBatch.DrawString(_font, sizeText, new Vector2(leftColumnStart, textY), UIConstants.TextGreen);
             
             // Calculate spacing for speed text
             Vector2 sizeTextSize = _font.MeasureString(sizeText);
             float speedPercent = (_shopService.PaddleSpeedMultiplier - 1.0f) * 100f;
             string speedText = $"SPEED: {speedPercent:F0}%";
             float speedX = leftColumnStart + sizeTextSize.X + 20; // 20px spacing
-            _spriteBatch.DrawString(_font, speedText, new Vector2(speedX, textY), new Color(100, 200, 255));
+            _spriteBatch.DrawString(_font, speedText, new Vector2(speedX, textY), UIConstants.ShopSpeedUpgradeColor);
             
             // MIDDLE COLUMN: Purchased Items (Icons) - centered in middle column
             int iconSpacing = 35;
