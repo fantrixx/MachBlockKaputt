@@ -13,6 +13,8 @@ namespace AlleywayMonoGame.Services
         public int ExtraBallsPurchased { get; private set; }
         public bool StartWithShootMode { get; set; }
         public bool HasShield { get; set; }
+        public bool ShieldBreaking { get; set; }
+        public float ShieldBreakTimer { get; set; }
         public int TotalEarned { get; private set; }
         public int TotalSpent { get; private set; }
         
@@ -146,6 +148,21 @@ namespace AlleywayMonoGame.Services
         public void UseShield()
         {
             HasShield = false;
+            ShieldBreaking = true;
+            ShieldBreakTimer = 2.0f; // 2 seconds animation
+        }
+
+        public void UpdateShieldBreak(float deltaTime)
+        {
+            if (ShieldBreaking)
+            {
+                ShieldBreakTimer -= deltaTime;
+                if (ShieldBreakTimer <= 0)
+                {
+                    ShieldBreaking = false;
+                    ShieldBreakTimer = 0;
+                }
+            }
         }
 
         public int CalculateTimeBonus(float gameTime)

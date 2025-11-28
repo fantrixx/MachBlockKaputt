@@ -458,6 +458,9 @@ namespace AlleywayMonoGame
             // Update UFO
             _ufoManager.Update(dt);
 
+            // Update shield break animation
+            _shopService.UpdateShieldBreak(dt);
+
             // Update shoot power-up
             UpdateShootPowerUp(dt);
 
@@ -773,8 +776,7 @@ namespace AlleywayMonoGame
         private void OnShieldUsed()
         {
             // Play shield break sound
-            _audioService.PlayPaddleShrink(); // Reuse existing sound for now
-            // Could add dedicated shield break sound later
+            _audioService.PlayShieldBreak();
         }
 
         private void OnLevelComplete()

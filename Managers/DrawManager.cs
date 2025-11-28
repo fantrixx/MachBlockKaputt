@@ -383,6 +383,13 @@ namespace AlleywayMonoGame.Managers
 
         private void DrawShieldOverlay(int x, int y)
         {
+            // Check if shield is breaking
+            if (_shopService.ShieldBreaking)
+            {
+                DrawShieldBreakingAnimation(x, y);
+                return;
+            }
+
             // Shield color with pulsing effect
             float pulse = (float)Math.Sin(_scoreService.GameTimer * 4f) * 0.3f + 0.7f;
             Color shieldColor = new Color(200, 150, 255) * pulse;
@@ -414,6 +421,71 @@ namespace AlleywayMonoGame.Managers
             _spriteBatch.Draw(_whitePixel, new Rectangle(x + 11, y + 4, 2, 8), crossColor);
             // Horizontal line
             _spriteBatch.Draw(_whitePixel, new Rectangle(x + 7, y + 7, 10, 2), crossColor);
+        }
+
+        private void DrawShieldBreakingAnimation(int x, int y)
+        {
+            float progress = 1f - (_shopService.ShieldBreakTimer / 2.0f); // 0 to 1
+            
+            // Fade out color
+            float alpha = 1f - progress;
+            Color shieldColor = new Color(200, 150, 255) * alpha;
+            
+            // Crack lines spreading outward
+            Random crackRandom = new Random(12345); // Fixed seed for consistent cracks
+            int numCracks = 8;
+            
+            for (int i = 0; i < numCracks; i++)
+            {
+                if (progress > i * 0.125f) // Stagger crack appearance
+                {
+                    float angle = (float)(i * Math.PI * 2 / numCracks);
+                    float crackLength = progress * 15f; // Cracks grow over time
+                    
+                    int startX = x + 12; // Center of heart
+                    int startY = y + 12;
+                    int endX = startX + (int)(Math.Cos(angle) * crackLength);
+                    int endY = startY + (int)(Math.Sin(angle) * crackLength);
+                    
+                    // Draw crack line
+                    DrawLine(startX, startY, endX, endY, shieldColor);
+                    
+                    // Draw fragments flying away
+                    if (progress > 0.5f)
+                    {
+                        float fragmentProgress = (progress - 0.5f) * 2f;
+                        int fragX = endX + (int)(Math.Cos(angle) * fragmentProgress * 10);
+                        int fragY = endY + (int)(Math.Sin(angle) * fragmentProgress * 10);
+                        
+                        // Small fragment pieces
+                        int fragSize = Math.Max(1, (int)(3 * (1f - fragmentProgress)));
+                        _spriteBatch.Draw(_whitePixel, new Rectangle(fragX, fragY, fragSize, fragSize), shieldColor * 0.7f);
+                    }
+                }
+            }
+        }
+
+        private void DrawLine(int x1, int y1, int x2, int y2, Color color)
+        {
+            // Simple line drawing using rectangles
+            int dx = x2 - x1;
+            int dy = y2 - y1;
+            int steps = Math.Max(Math.Abs(dx), Math.Abs(dy));
+            
+            if (steps == 0) return;
+            
+            float xInc = dx / (float)steps;
+            float yInc = dy / (float)steps;
+            
+            float x = x1;
+            float y = y1;
+            
+            for (int i = 0; i <= steps; i++)
+            {
+                _spriteBatch.Draw(_whitePixel, new Rectangle((int)x, (int)y, 2, 2), color);
+                x += xInc;
+                y += yInc;
+            }
         }
 
         public void DrawShootModeIndicator()

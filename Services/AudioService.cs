@@ -26,6 +26,7 @@ namespace AlleywayMonoGame.Services
         public SoundEffect? PaddleEnlargeSound { get; private set; }
         public SoundEffect? PaddleShrinkSound { get; private set; }
         public SoundEffect? UFOSound { get; private set; }
+        public SoundEffect? ShieldBreakSound { get; private set; }
 
         public AudioService()
         {
@@ -52,6 +53,7 @@ namespace AlleywayMonoGame.Services
                 PaddleEnlargeSound = CreatePaddleEnlargeSound();
                 PaddleShrinkSound = CreatePaddleShrinkSound();
                 UFOSound = CreateUFOSound();
+                ShieldBreakSound = CreateShieldBreakSound();
             }
             catch
             {
@@ -74,6 +76,7 @@ namespace AlleywayMonoGame.Services
         public void PlayPaddleEnlarge() => PaddleEnlargeSound?.Play();
         public void PlayPaddleShrink() => PaddleShrinkSound?.Play();
         public void PlayUFO() => UFOSound?.Play();
+        public void PlayShieldBreak() => ShieldBreakSound?.Play();
 
         private SoundEffect CreateExplosionSoundEffect(int frequency, float durationSeconds, float volume)
         {
@@ -731,6 +734,53 @@ namespace AlleywayMonoGame.Services
                 // Combine
                 double signal = tone + harmonic1 + harmonic2;
                 signal *= tremolo;
+                
+                short sample = (short)(amplitude * signal);
+                bw.Write(sample);
+                t += dt;
+            }
+
+            bw.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+            return SoundEffect.FromStream(ms);
+        }
+
+        private SoundEffect CreateShieldBreakSound()
+        {
+            const int sampleRate = 44100;
+            float durationSeconds = 0.4f;
+            int samples = (int)(sampleRate * durationSeconds);
+            using var ms = new MemoryStream();
+            using var bw = new BinaryWriter(ms);
+
+            WriteWavHeader(bw, samples);
+
+            double amplitude = 32760 * 0.6f;
+            double t = 0;
+            double dt = 1.0 / sampleRate;
+            
+            for (int i = 0; i < samples; i++)
+            {
+                double progress = t / durationSeconds;
+                
+                // Glass/crystal shatter effect
+                // Multiple descending frequencies for shatter effect
+                double freq1 = 1800 - progress * 1400; // High pitch descending
+                double freq2 = 900 - progress * 700;   // Mid pitch
+                double freq3 = 450 - progress * 350;   // Low pitch
+                
+                // Sharp attack with exponential decay
+                double env = Math.Exp(-6.0 * progress);
+                
+                // Add noise for crackle effect
+                double noise = (_random.NextDouble() * 2 - 1) * 0.3 * env;
+                
+                // Combine frequencies with decreasing amplitudes
+                double tone1 = Math.Sin(2.0 * Math.PI * freq1 * t) * 0.5;
+                double tone2 = Math.Sin(2.0 * Math.PI * freq2 * t) * 0.3;
+                double tone3 = Math.Sin(2.0 * Math.PI * freq3 * t) * 0.2;
+                
+                double signal = (tone1 + tone2 + tone3 + noise) * env;
                 
                 short sample = (short)(amplitude * signal);
                 bw.Write(sample);
